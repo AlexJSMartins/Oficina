@@ -1,0 +1,72 @@
+# Dependências (Raiz, Frontend e Backend)
+node_modules/
+jspm_packages/
+
+# Builds e Compilações (NestJS e React/Vite)
+dist/
+dist-ssr/
+build/
+out/
+
+# Variáveis de Ambiente e Segredos (NUNCA subir para o GitHub)
+.env
+.env.*
+*.local
+!.env.example
+
+# Ferramentas de IA e Editores
+.agents/
+.claude/
+.cursor/
+.devin/
+
+# Logs e Diagnósticos
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Dados de Execução, Cache e Temporários
+pids
+*.pid
+*.seed
+*.pid.lock
+.temp/
+.tmp/
+.cache/
+.eslintcache
+
+# Testes e Cobertura
+coverage/
+.nyc_output/
+
+# Volumes locais do Docker (caso crie pastas locais)
+postgres_data/
+redis_data/
+
+# IDEs e Editores (VSCode, JetBrains, etc.)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

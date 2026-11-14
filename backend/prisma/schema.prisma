@@ -1,0 +1,248 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  RECEPTIONIST
+  MECHANIC
+}
+
+enum OrderStatus {
+  CHECK_IN
+  IN_DIAGNOSIS
+  WAITING_APPROVAL
+  IN_REPAIR
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELED
+}
+
+enum ItemType {
+  LABOR
+  PART
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+// O enum de métodos de pagamento que o Front-end e Back-end usam
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+  BOLETO
+  TRANSFER
+}
+
+enum FinancialCategory {
+  REVENUE_LABOR
+  REVENUE_PARTS
+  REVENUE_OTHER
+  COST_PARTS
+  COST_THIRD_PARTY
+  EXPENSE_RENT
+  EXPENSE_WATER_LIGHT
+  EXPENSE_PAYROLL
+  EXPENSE_OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+model User {
+  id            String          @id @default(uuid())
+  name          String
+  email         String          @unique
+  passwordHash  String
+  role          Role            @default(MECHANIC)
+  permissions   String[]        @default([]) // Ex: ["customers:manage", "orders:diagnosis"]
+  isActive      Boolean         @default(true)
+  serviceOrders ServiceOrder[]
+  timelineLogs  OrderTimeline[]
+  transactions  FinancialTransaction[]
+  commissionRate Float @default(0) // Comissão padrão em % (ex: 40 para 40%)
+  createdAt     DateTime        @default(now())
+}
+
+model Customer {
+  id            String         @id @default(uuid())
+  name          String
+  phone         String
+  email         String?
+  document      String?
+  vehicles      Vehicle[]
+  serviceOrders ServiceOrder[]
+  createdAt     DateTime       @default(now())
+}
+
+model Vehicle {
+  id            String         @id @default(uuid())
+  plate         String         @unique
+  brand         String
+  model         String
+  year          Int
+  color         String?
+  customerId    String
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceOrders ServiceOrder[]
+}
+
+model ServiceOrder {
+  id             String                 @id @default(uuid())
+  number         Int                    @default(autoincrement())
+  trackingToken  String                 @unique @default(uuid())
+  status         OrderStatus            @default(CHECK_IN)
+  entryDate      DateTime               @default(now())
+  exitDate       DateTime?
+  currentKm      Int
+  fuelLevel      String?
+  customerNotes  String?
+  mechanicNotes  String?
+  technicalNotes String?
+  customerId     String
+  customer       Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId      String
+  vehicle        Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  mechanicId     String?
+  mechanic       User?                  @relation(fields: [mechanicId], references: [id])
+  items          OrderItem[]
+  timeline       OrderTimeline[]
+  transactions   FinancialTransaction[]
+  mechanicCommissionRate Float? // Se preenchido pelo gestor, ignora a taxa padrão do mecânico para esta OS específica
+  
+  
+  discount       Float                  @default(0) 
+  totalAmount    Float                  @default(0) 
+  
+  updatedAt      DateTime               @updatedAt
+}
+
+
+model OrderItem {
+
+  id             String       @id @default(uuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  type           ItemType     @default(PART)
+  description    String
+  quantity       Int          @default(1)
+  costPrice      Float        @default(0)
+  unitCost       Float        @default(0)
+  unitPrice      Float        
+  totalPrice     Float
+  createdAt      DateTime     @default(now())
+}
+
+model OrderTimeline {
+  id             String       @id @default(uuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  status         OrderStatus
+  description    String?
+  isPublic       Boolean      @default(true)
+  medias         OrderMedia[]
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+}
+
+model OrderMedia {
+  id         String        @id @default(uuid())
+  timelineId String
+  timeline   OrderTimeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  url        String
+  type       String
+  createdAt  DateTime      @default(now())
+}
+
+model FinancialTransaction {
+ id             String          @id @default(uuid())
+  type           TransactionType
+  category       String          // Mudamos para String para aceitar 'PARTS_COST', 'RENT', etc.
+  description    String
+  amount         Float           // Float facilita os cálculos do DRE no backend
+  paymentMethod  PaymentMethod   @default(PIX)
+  date           DateTime        @default(now()) // Simplificado para data do fluxo de caixa
+
+  serviceOrderId String?
+  serviceOrder   ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  createdById    String?
+  createdBy      User?           @relation(fields: [createdById], references: [id])
+  
+  createdAt      DateTime        @default(now())
+}
+
+model WorkshopSettings {
+  id             String   @id @default("default")
+  name           String   @default("Oficina Pro")
+  slogan         String?  @default("Centro Automotivo Especializado")
+  document       String?  // CNPJ ou CPF da oficina
+  phone          String?  // WhatsApp / Telefone comercial
+  address        String?  // Endereço completo para o cabeçalho do PDF
+  logoUrl        String?  // URL da logo salva no Cloudflare R2 ou Base64
+  primaryColor   String   @default("#0f172a") // Cor principal (cabeçalho do PDF e Portal)
+  secondaryColor String   @default("#16a34a") // Cor de destaque (Total e botões)
+  warrantyTerms  String?  @default("Garantia de 90 dias para serviços executados, conforme legislação vigente.")
+  updatedAt      DateTime @updatedAt
+  
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  document  String?
+  rating    Float    @default(5.0) // Ranking de 1 a 5 estrelas
+  items     CatalogItem[]
+  createdAt DateTime @default(now())
+}
+
+model CatalogItem {
+  id           String   @id @default(uuid())
+  type         String   // "PART" (Peça) ou "LABOR" (Mão de Obra/Serviço)
+  code         String?  @unique // Código interno ou SKU da peça
+  name         String
+  costPrice    Float    @default(0)
+  salePrice    Float    @default(0)
+  stock        Int      @default(0)
+  minStock     Int      @default(0) // Alerta de estoque baixo
+  defects      Int      @default(0) // Contador de peças com defeito (Garantia)
+  
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
+  
+  movements    StockMovement[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model StockMovement {
+  id            String   @id @default(uuid())
+  type          String   // "IN" (Entrada), "OUT" (Saída/OS), "DEFECT" (Defeito/Garantia)
+  quantity      Int
+  reason        String?  // Ex: "Aprovado na OS #100", "Peça com defeito trocada"
+  
+  catalogItemId String
+  item          CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  
+  serviceOrderId String? // Opcional, caso a saída seja atrelada a uma OS
+  createdById   String
+  createdAt     DateTime @default(now())
+}
