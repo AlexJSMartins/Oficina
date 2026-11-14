@@ -1,5 +1,5 @@
 // frontend/src/components/FinancialChartsPanel.tsx
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -137,9 +137,9 @@ export default function FinancialChartsPanel({
     .filter((t) => t.type === 'INCOME')
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
-  const totalOut = transactions
+  /* const totalOut = transactions
     .filter((t) => t.type === 'EXPENSE')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0); */
 
   const osIncomeTransactions = transactions.filter(
     (t) => t.type === 'INCOME' && t.category === 'SERVICE_ORDER',
@@ -307,7 +307,7 @@ export default function FinancialChartsPanel({
                   outerRadius={95}
                   paddingAngle={4}
                   dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name}: ${((percent || 0 )* 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {revenueSplitData.map((entry, index) => (
