@@ -19,18 +19,18 @@ export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get('search')
-  search(@Query('q') q?: string) {
-    return this.catalogService.searchCatalog(q || '');
+  search(@Request() req: any, @Query('q') q?: string) {
+    return this.catalogService.searchCatalog(q || '', req.user.workshopId);
   }
 
   @Get('inventory')
-  getInventory() {
-    return this.catalogService.getInventory();
+  getInventory(@Request() req: any) {
+    return this.catalogService.getInventory(req.user.workshopId);
   }
 
   @Post('items')
   createItem(@Body() body: any, @Request() req: any) {
-    return this.catalogService.createItem(body, req.user.id);
+    return this.catalogService.createItem(body, req.user.id, req.user.workshopId);
   }
 
   @Patch('items/:id')
@@ -54,13 +54,13 @@ export class CatalogController {
   }
 
   @Get('suppliers')
-  getSuppliers() {
-    return this.catalogService.getAllSuppliers();
+  getSuppliers(@Request() req: any) {
+    return this.catalogService.getAllSuppliers(req.user.workshopId);
   }
 
   @Post('suppliers')
-  createSupplier(@Body() body: any) {
-    return this.catalogService.createSupplier(body);
+  createSupplier(@Body() body: any, @Request() req: any) {
+    return this.catalogService.createSupplier(body, req.user.workshopId);
   }
 
   @Patch('suppliers/:id')
@@ -75,6 +75,6 @@ export class CatalogController {
 
   @Post('bulk-import')
   bulkImport(@Body() body: { rows: any[] }, @Request() req: any) {
-    return this.catalogService.bulkImport(body.rows, req.user.id);
+    return this.catalogService.bulkImport(body.rows, req.user.id, req.user.workshopId);
   }
 }

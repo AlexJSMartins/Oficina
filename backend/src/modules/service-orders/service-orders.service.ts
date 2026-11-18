@@ -15,28 +15,65 @@ export interface CheckInDto {
   fuelLevel?: string;
   customerNotes?: string;
   mechanicId?: string;
+  workshopId?: string;
 }
 
 @Injectable()
 export class ServiceOrdersService {
   constructor(private prisma: PrismaService) {}
 
+  private async resolveWorkshopId(userOrWorkshopId?: string): Promise<string> {
+    if (userOrWorkshopId) {
+      const byWorkshop = await this.prisma.workshopSettings.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { id: true },
+      });
+      if (byWorkshop) return byWorkshop.id;
+
+      const byUser = await this.prisma.user.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { workshopId: true },
+      });
+      if (byUser?.workshopId) return byUser.workshopId;
+    }
+
+    const firstWorkshop = await this.prisma.workshopSettings.findFirst({
+      select: { id: true },
+    });
+    if (firstWorkshop) return firstWorkshop.id;
+
+    const created = await this.prisma.workshopSettings.create({
+      data: { name: 'Minha Oficina' },
+    });
+    return created.id;
+  }
+
   // Busca rápida pela placa: se o carro já veio na oficina antes, preenche os dados sozinho!
-  async findVehicleByPlate(plate: string) {
+  async findVehicleByPlate(plate: string, userOrWorkshopId?: string) {
     const cleanPlate = plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return this.prisma.vehicle.findUnique({
-      where: { plate: cleanPlate },
+    const targetWorkshopId = userOrWorkshopId
+      ? await this.resolveWorkshopId(userOrWorkshopId)
+      : undefined;
+
+    return this.prisma.vehicle.findFirst({
+      where: {
+        plate: cleanPlate,
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
+      },
       include: { customer: true },
     });
   }
 
-  // Lista todas as OS ativas no pátio
-  async findAll(user: { id: string; role: string; permissions: string[] }) {
+  // Lista todas as OS ativas no pátio (isoladas pela oficina do usuário logado)
+  async findAll(user: { id: string; workshopId?: string; role: string; permissions: string[] }) {
+    const workshopId = await this.resolveWorkshopId(user.workshopId || user.id);
     const canViewAll = user.role === 'ADMIN' || user.permissions.includes('orders:view_all');
 
-    // Ordena por data de entrada (mais recente primeiro) e inclui dados do cliente, veículo, mecânico, itens e transações
     return this.prisma.serviceOrder.findMany({
-      where: canViewAll ? {} : { mechanicId: user.id },
+      where: {
+        workshopId,
+        ...(canViewAll ? {} : { mechanicId: user.id }),
+      },
       include: {
         customer: true,
         vehicle: true,
@@ -49,21 +86,32 @@ export class ServiceOrdersService {
   }
 
   // Lista mecânicos disponíveis para atribuir à OS
-  async listMechanics() {
+  async listMechanics(userOrWorkshopId?: string) {
+    const targetWorkshopId = userOrWorkshopId
+      ? await this.resolveWorkshopId(userOrWorkshopId)
+      : undefined;
+
     return this.prisma.user.findMany({
-      where: { isActive: true, role: 'MECHANIC' },
+      where: {
+        isActive: true,
+        role: 'MECHANIC',
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
+      },
       select: { id: true, name: true },
     });
   }
 
   // Entrada de Veículo (Check-in Unificado)
-  async createCheckIn(dto: CheckInDto, userId: string) {
+  async createCheckIn(dto: CheckInDto, userId: string, workshopId?: string) {
+    const resolvedWorkshopId = await this.resolveWorkshopId(
+      workshopId || dto.workshopId || userId,
+    );
     const cleanPlate = dto.plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Verifica se o veículo já existe pela placa
-      let vehicle = await tx.vehicle.findUnique({
-        where: { plate: cleanPlate },
+      // 1. Verifica se o veículo já existe pela placa dentro desta oficina
+      let vehicle = await tx.vehicle.findFirst({
+        where: { plate: cleanPlate, workshopId: resolvedWorkshopId },
         include: { customer: true },
       });
 
@@ -71,15 +119,14 @@ export class ServiceOrdersService {
 
       if (vehicle) {
         customerId = vehicle.customerId;
-        // Atualiza telefone/nome do cliente caso tenha mudado
         await tx.customer.update({
           where: { id: customerId },
           data: { name: dto.customerName, phone: dto.customerPhone },
         });
       } else {
-        // Cria novo cliente e veículo
         const newCustomer = await tx.customer.create({
           data: {
+            workshopId: resolvedWorkshopId,
             name: dto.customerName,
             phone: dto.customerPhone,
             document: dto.customerDocument,
@@ -89,6 +136,7 @@ export class ServiceOrdersService {
 
         vehicle = await tx.vehicle.create({
           data: {
+            workshopId: resolvedWorkshopId,
             plate: cleanPlate,
             brand: dto.brand,
             model: dto.model,
@@ -103,6 +151,7 @@ export class ServiceOrdersService {
       // 2. Cria a Ordem de Serviço no status CHECK_IN
       const order = await tx.serviceOrder.create({
         data: {
+          workshopId: resolvedWorkshopId,
           status: OrderStatus.CHECK_IN,
           currentKm: Number(dto.currentKm),
           fuelLevel: dto.fuelLevel,
@@ -129,7 +178,7 @@ export class ServiceOrdersService {
     });
   }
 
- // Mudança rápida de status no Pátio/Kanban (Com trava anti-duplicidade e baixa automática de estoque)
+  // Mudança rápida de status no Pátio/Kanban (Com trava anti-duplicidade e baixa automática de estoque)
   async updateStatus(
     orderId: string,
     status: OrderStatus,
@@ -141,7 +190,6 @@ export class ServiceOrdersService {
 
     const descText = description || `Status atualizado para ${status}`;
 
-    // Trava 1: Verifica se já houve exatamente o mesmo registro nos últimos 5 segundos (evita clique duplo)
     const fiveSecondsAgo = new Date(Date.now() - 5000);
     const duplicateEvent = await this.prisma.orderTimeline.findFirst({
       where: {
@@ -182,7 +230,6 @@ export class ServiceOrdersService {
       return updatedOrder;
     });
 
-    // Se a OS avançou para Em Reparação, Pronto ou Finalizado, dá baixa automática nas peças do orçamento
     if (
       status === OrderStatus.IN_REPAIR ||
       status === OrderStatus.READY_FOR_PICKUP ||
@@ -203,7 +250,6 @@ export class ServiceOrdersService {
 
     if (!order || !order.items || order.items.length === 0) return;
 
-    // Verifica se já houve baixa de estoque para esta OS (evita descontar 2 vezes)
     const existingMovements = await this.prisma.stockMovement.count({
       where: {
         serviceOrderId: order.id,
@@ -216,9 +262,9 @@ export class ServiceOrdersService {
     for (const item of order.items) {
       if (item.type !== 'PART' || !item.description) continue;
 
-      // Procura a peça no catálogo pelo nome ou código
       const catalogItem = await this.prisma.catalogItem.findFirst({
         where: {
+          workshopId: order.workshopId,
           type: 'PART',
           OR: [
             { name: { equals: item.description.trim(), mode: 'insensitive' } },
@@ -238,6 +284,7 @@ export class ServiceOrdersService {
           }),
           this.prisma.stockMovement.create({
             data: {
+              workshopId: order.workshopId,
               catalogItemId: catalogItem.id,
               type: 'OUT',
               quantity: qtyToDeduct,
@@ -310,63 +357,71 @@ export class ServiceOrdersService {
   }
 
   // Adiciona Peça (PART) ou Mão de Obra (LABOR) no orçamento
- async addOrderItem(
-  orderId: string,
-  data: {
-    type: 'PART' | 'LABOR';
-    description: string;
-    quantity: number;
-    costPrice?: number;
-    unitPrice: number;
-  },
-) {
-  const qty = Number(data.quantity) || 1;
-  const unit = Number(data.unitPrice) || 0;
-  const cost = Number(data.costPrice) || 0;
-  const totalPrice = qty * unit;
-  const itemName = String(data.description).trim();
+  async addOrderItem(
+    orderId: string,
+    data: {
+      type: 'PART' | 'LABOR';
+      description: string;
+      quantity: number;
+      costPrice?: number;
+      unitPrice: number;
+    },
+  ) {
+    const qty = Number(data.quantity) || 1;
+    const unit = Number(data.unitPrice) || 0;
+    const cost = Number(data.costPrice) || 0;
+    const totalPrice = qty * unit;
+    const itemName = String(data.description).trim();
 
-  return this.prisma.$transaction(async (tx) => {
-    // 1. CADASTRO RÁPIDO NO CATÁLOGO: Verifica se o item já existe no banco
-    if (itemName) {
-      const existingCatalogItem = await tx.catalogItem.findFirst({
-        where: {
-          name: { equals: itemName, mode: 'insensitive' },
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.serviceOrder.findUnique({
+        where: { id: orderId },
+        select: { id: true, workshopId: true },
+      });
+      if (!order) throw new NotFoundException('Ordem de Serviço não encontrada.');
+
+      // 1. CADASTRO RÁPIDO NO CATÁLOGO: Verifica se o item já existe no banco desta oficina
+      if (itemName) {
+        const existingCatalogItem = await tx.catalogItem.findFirst({
+          where: {
+            workshopId: order.workshopId,
+            name: { equals: itemName, mode: 'insensitive' },
+            type: data.type,
+          },
+        });
+
+        if (!existingCatalogItem) {
+          await tx.catalogItem.create({
+            data: {
+              workshopId: order.workshopId,
+              type: data.type,
+              name: itemName,
+              costPrice: data.type === 'PART' ? cost : 0,
+              salePrice: unit,
+              stock: 0,
+              minStock: 2,
+            },
+          });
+        }
+      }
+
+      // 2. Adiciona o item na Ordem de Serviço (Orçamento)
+      await tx.orderItem.create({
+        data: {
+          serviceOrderId: orderId,
           type: data.type,
+          description: itemName,
+          quantity: qty,
+          costPrice: data.type === 'PART' ? cost : 0,
+          unitCost: data.type === 'PART' ? cost : 0,
+          unitPrice: unit,
+          totalPrice,
         },
       });
 
-      if (!existingCatalogItem) {
-        // Se não existir, cadastra automaticamente para aparecer no estoque/catálogo geral
-        await tx.catalogItem.create({
-          data: {
-            type: data.type,
-            name: itemName,
-            costPrice: data.type === 'PART' ? cost : 0,
-            salePrice: unit,
-            stock: data.type === 'PART' ? 0 : 0, // Começa com 0 ou o que preferir
-            minStock: 2,
-          },
-        });
-      }
-    }
-
-    // 2. Adiciona o item na Ordem de Serviço (Orçamento)
-    await tx.orderItem.create({
-      data: {
-        serviceOrderId: orderId,
-        type: data.type,
-        description: itemName,
-        quantity: qty,
-        costPrice: data.type === 'PART' ? cost : 0,
-        unitPrice: unit,
-        totalPrice,
-      },
+      return this.recalculateOrderTotal(tx, orderId);
     });
-
-    return this.recalculateOrderTotal(tx, orderId);
-  });
-}
+  }
 
   // Remove um item do orçamento
   async removeOrderItem(orderId: string, itemId: string) {
@@ -425,6 +480,4 @@ export class ServiceOrdersService {
       data: { mechanicCommissionRate: rate },
     });
   }
-
-  
 }

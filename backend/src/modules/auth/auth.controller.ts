@@ -1,4 +1,3 @@
-//backend/src/modules/auth/auth.controller.ts
 import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard, PermissionsGuard, RequirePermissions } from './permissions.guard';
@@ -8,6 +7,22 @@ import { Role } from '@prisma/client';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  // Nova rota pública para Leads criarem sua Oficina + Acesso Admin isolado
+  @Post('register')
+  register(
+    @Body()
+    body: {
+      workshopName: string;
+      document?: string;
+      phone?: string;
+      adminName: string;
+      email: string;
+      password: string;
+    },
+  ) {
+    return this.authService.registerWorkshopLead(body);
+  }
 
   @Post('login')
   login(@Body() body: { email: string; password: string }) {
@@ -23,14 +38,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @Get('users')
-  listUsers() {
-    return this.authService.listUsers();
+  listUsers(@Request() req: any) {
+    return this.authService.listUsers(req.user.workshopId);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @Post('users')
   createUser(
+    @Request() req: any,
     @Body()
     body: {
       name: string;
@@ -41,22 +57,17 @@ export class AuthController {
       commissionRate?: number;
     },
   ) {
-    return this.authService.createUser(body);
+    return this.authService.createUser(req.user.workshopId, body);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @Patch('users/:id')
   updateUser(
+    @Request() req: any,
     @Param('id') id: string,
-    @Body()
-    body: {
-      role?: Role;
-      permissions?: string[];
-      isActive?: boolean;
-      commissionRate?: number;
-    },
+    @Body() body: { role?: Role; permissions?: string[]; isActive?: boolean; commissionRate?: number },
   ) {
-    return this.authService.updateUserPermissions(id, body);
+    return this.authService.updateUserPermissions(req.user.workshopId, id, body);
   }
 }

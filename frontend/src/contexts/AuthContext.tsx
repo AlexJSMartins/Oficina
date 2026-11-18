@@ -13,6 +13,8 @@ api.interceptors.request.use((config) => {
 
 export interface User {
   id: string;
+  workshopId?: string;
+  workshopName?: string;
   name: string;
   email: string;
   role: 'ADMIN' | 'RECEPTIONIST' | 'MECHANIC';
@@ -20,9 +22,19 @@ export interface User {
   commissionRate?: number;
 }
 
+interface RegisterWorkshopInput {
+  workshopName: string;
+  document?: string;
+  phone?: string;
+  adminName: string;
+  email: string;
+  password: string;
+}
+
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  registerWorkshop: (payload: RegisterWorkshopInput) => Promise<User>;
   logout: () => void;
   hasPermission: (perm: string) => boolean;
 }
@@ -47,6 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const registerWorkshop = async (payload: RegisterWorkshopInput) => {
+    const { data } = await api.post('/auth/register', payload);
+    localStorage.setItem('@oficina:token', data.accessToken);
+    localStorage.setItem('@oficina:user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  };
+
   const login = async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('@oficina:token', data.accessToken);
@@ -68,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, registerWorkshop, logout, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

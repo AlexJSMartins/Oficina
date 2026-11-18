@@ -19,33 +19,63 @@ export interface BulkImportRow {
   totalAmount?: number | string;
 }
 
-
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
 
+  private async resolveWorkshopId(userOrWorkshopId?: string): Promise<string> {
+    if (userOrWorkshopId) {
+      const byWorkshop = await this.prisma.workshopSettings.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { id: true },
+      });
+      if (byWorkshop) return byWorkshop.id;
+
+      const byUser = await this.prisma.user.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { workshopId: true },
+      });
+      if (byUser?.workshopId) return byUser.workshopId;
+    }
+
+    const firstWorkshop = await this.prisma.workshopSettings.findFirst({
+      select: { id: true },
+    });
+    if (firstWorkshop) return firstWorkshop.id;
+
+    const created = await this.prisma.workshopSettings.create({
+      data: { name: 'Minha Oficina' },
+    });
+    return created.id;
+  }
+
   // 1. Lista todos os clientes com resumo financeiro e Alerta de Revisão (6 meses / 180 dias)
-  async findAll(search?: string) {
+  async findAll(search?: string, workshopId?: string) {
+    const targetWorkshopId = workshopId ? await this.resolveWorkshopId(workshopId) : undefined;
+
     const customers = await this.prisma.customer.findMany({
-      where: search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { phone: { contains: search } },
-              { document: { contains: search } },
-              {
-                vehicles: {
-                  some: {
-                    OR: [
-                      { plate: { contains: search, mode: 'insensitive' } },
-                      { model: { contains: search, mode: 'insensitive' } },
-                    ],
+      where: {
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { phone: { contains: search } },
+                { document: { contains: search } },
+                {
+                  vehicles: {
+                    some: {
+                      OR: [
+                        { plate: { contains: search, mode: 'insensitive' } },
+                        { model: { contains: search, mode: 'insensitive' } },
+                      ],
+                    },
                   },
                 },
-              },
-            ],
-          }
-        : undefined,
+              ],
+            }
+          : {}),
+      },
       include: {
         vehicles: true,
         serviceOrders: {
@@ -75,7 +105,6 @@ export class CustomersService {
       const lastOrder = c.serviceOrders[0] || null;
       const lastVisitDate = lastOrder ? new Date(lastOrder.entryDate) : null;
 
-      // Alerta de revisão: se a última visita foi há mais de 6 meses (180 dias)
       const needsMaintenanceAlert = lastVisitDate ? lastVisitDate < sixMonthsAgo : false;
       const daysSinceLastVisit = lastVisitDate
         ? Math.floor((Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -116,7 +145,6 @@ export class CustomersService {
 
     if (!customer) throw new NotFoundException('Cliente não encontrado.');
 
-    // Calcula alertas por veículo individualmente (6 meses ou estimativa de +10.000 km)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
 
@@ -131,7 +159,6 @@ export class CustomersService {
         ? Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
-      // Estima se o cliente já rodou ~10.000 km desde a última OS (média padrão de 1.200 km/mês = 40 km/dia)
       const estimatedKmDriven = daysSinceLast * 40;
       const isKmDue = estimatedKmDriven >= 10000;
 
@@ -161,31 +188,36 @@ export class CustomersService {
   }
 
   // 3. Cadastro Manual de Cliente Único (+ Veículo Opcional com trava contra sobrescrita de placa)
-  async createCustomer(dto: {
-    name: string;
-    phone: string;
-    email?: string;
-    document?: string;
-    vehicle?: {
-      plate: string;
-      brand: string;
-      model: string;
-      year: number;
-      color?: string;
-    };
-  }) {
+  async createCustomer(
+    dto: {
+      name: string;
+      phone: string;
+      email?: string;
+      document?: string;
+      workshopId?: string;
+      vehicle?: {
+        plate: string;
+        brand: string;
+        model: string;
+        year: number;
+        color?: string;
+      };
+    },
+    userOrWorkshopId?: string,
+  ) {
     if (!dto.name || !dto.phone) {
       throw new BadRequestException('Nome e telefone do cliente são obrigatórios.');
     }
 
+    const resolvedWorkshopId = await this.resolveWorkshopId(userOrWorkshopId || dto.workshopId);
     const cleanPhone = String(dto.phone).replace(/\D/g, '');
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.vehicle && dto.vehicle.plate) {
         const cleanPlate = dto.vehicle.plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
         if (cleanPlate.length >= 6) {
-          const existingVehicle = await tx.vehicle.findUnique({
-            where: { plate: cleanPlate },
+          const existingVehicle = await tx.vehicle.findFirst({
+            where: { plate: cleanPlate, workshopId: resolvedWorkshopId },
           });
           if (existingVehicle) {
             throw new BadRequestException(
@@ -197,6 +229,7 @@ export class CustomersService {
 
       const customer = await tx.customer.create({
         data: {
+          workshopId: resolvedWorkshopId,
           name: dto.name.trim(),
           phone: cleanPhone || dto.phone.trim(),
           email: dto.email?.trim() || null,
@@ -209,6 +242,7 @@ export class CustomersService {
         if (cleanPlate.length >= 6) {
           await tx.vehicle.create({
             data: {
+              workshopId: resolvedWorkshopId,
               plate: cleanPlate,
               brand: dto.vehicle.brand || 'Não informada',
               model: dto.vehicle.model || 'Não informado',
@@ -225,17 +259,18 @@ export class CustomersService {
   }
 
   // 4. IMPORTAÇÃO EM LOTE INTELIGENTE (Excel / CSV) - Sem sobrescrever carros já existentes
-  async bulkImport(rows: BulkImportRow[], userId: string) {
+  async bulkImport(rows: BulkImportRow[], userId: string, workshopId?: string) {
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       throw new BadRequestException('Nenhum dado válido enviado na planilha.');
     }
+
+    const resolvedWorkshopId = await this.resolveWorkshopId(workshopId || userId);
 
     let customersCreatedOrUpdated = 0;
     let vehiclesProcessed = 0;
     let historyOrdersCreated = 0;
     let skippedRows = 0;
 
-    // Utilitário interno para converter valores monetários sujos (ex: "R$ 1.250,50" -> 1250.50)
     const parseMoney = (val: any): number => {
       if (typeof val === 'number') return val;
       if (!val) return 0;
@@ -249,7 +284,6 @@ export class CustomersService {
       return Number(str) || 0;
     };
 
-    // Utilitário interno para converter datas em formatos variados (DD/MM/YYYY, YYYY-MM-DD ou Serial do Excel)
     const parseFlexibleDate = (val: any): Date => {
       if (!val) return new Date();
       if (typeof val === 'number') {
@@ -275,7 +309,6 @@ export class CustomersService {
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '');
 
-      // Se a linha não tiver pelo menos um Nome de Cliente ou uma Placa, ignora com segurança
       if (!rawName && !rawPlate) {
         skippedRows++;
         continue;
@@ -286,30 +319,31 @@ export class CustomersService {
 
       try {
         await this.prisma.$transaction(async (tx) => {
-          // 1. Verifica primeiro se a placa já existe no banco para preservar o dono e o modelo original
           let existingVehicle =
             rawPlate && rawPlate.length >= 6
-              ? await tx.vehicle.findUnique({
-                  where: { plate: rawPlate },
+              ? await tx.vehicle.findFirst({
+                  where: { plate: rawPlate, workshopId: resolvedWorkshopId },
                   include: { customer: true },
                 })
               : null;
 
           let customer = existingVehicle?.customer || null;
 
-          // Se a placa não existia, procura o cliente pelo telefone ou nome
           if (!customer) {
             customer = await tx.customer.findFirst({
-              where:
-                safePhone !== '00000000000'
+              where: {
+                workshopId: resolvedWorkshopId,
+                ...(safePhone !== '00000000000'
                   ? { phone: safePhone }
-                  : { name: { equals: safeName, mode: 'insensitive' } },
+                  : { name: { equals: safeName, mode: 'insensitive' } }),
+              },
             });
           }
 
           if (!customer) {
             customer = await tx.customer.create({
               data: {
+                workshopId: resolvedWorkshopId,
                 name: safeName,
                 phone: safePhone,
                 email: row.customerEmail ? String(row.customerEmail).trim() : null,
@@ -319,7 +353,6 @@ export class CustomersService {
           }
           customersCreatedOrUpdated++;
 
-          // 2. Cria o veículo APENAS se a placa ainda não existir no banco (nunca altera marca/modelo de carros antigos)
           if (rawPlate && rawPlate.length >= 6) {
             if (!existingVehicle) {
               const cleanYear = Number(String(row.year || '').replace(/\D/g, ''));
@@ -330,6 +363,7 @@ export class CustomersService {
 
               existingVehicle = await tx.vehicle.create({
                 data: {
+                  workshopId: resolvedWorkshopId,
                   plate: rawPlate,
                   brand: row.brand ? String(row.brand).trim() : 'Diversos',
                   model: row.model ? String(row.model).trim() : 'Veículo Importado',
@@ -342,7 +376,6 @@ export class CustomersService {
             }
             vehiclesProcessed++;
 
-            // 3. Se a planilha tiver histórico de manutenção naquela linha, cria uma OS finalizada no histórico
             const hasHistory =
               Boolean(row.serviceDescription) ||
               Boolean(row.partsUsed) ||
@@ -359,6 +392,7 @@ export class CustomersService {
 
               const historicalOrder = await tx.serviceOrder.create({
                 data: {
+                  workshopId: resolvedWorkshopId,
                   status: OrderStatus.COMPLETED,
                   entryDate,
                   exitDate: entryDate,
@@ -374,7 +408,6 @@ export class CustomersService {
                 },
               });
 
-              // Cria o item na OS para constar no prontuário de peças/serviços
               if (safeTotal > 0 || partsText || desc) {
                 await tx.orderItem.create({
                   data: {
@@ -405,7 +438,6 @@ export class CustomersService {
           }
         });
       } catch (err) {
-        // Se uma linha específica tiver algum dado corrompido extremo, pula apenas ela sem abortar a planilha toda
         skippedRows++;
       }
     }
@@ -435,11 +467,16 @@ export class CustomersService {
     });
   }
 
-  // 6. Atualizar dados do Veículo (com trava contra placas duplicadas)
+  // 6. Atualizar dados do Veículo (com trava contra placas duplicadas na mesma oficina)
   async updateVehicle(id: string, dto: { plate?: string; brand?: string; model?: string; year?: number; color?: string }) {
+    const currentVehicle = await this.prisma.vehicle.findUnique({ where: { id } });
+    if (!currentVehicle) throw new NotFoundException('Veículo não encontrado.');
+
     if (dto.plate) {
       const cleanPlate = dto.plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const existing = await this.prisma.vehicle.findUnique({ where: { plate: cleanPlate } });
+      const existing = await this.prisma.vehicle.findFirst({
+        where: { plate: cleanPlate, workshopId: currentVehicle.workshopId },
+      });
       if (existing && existing.id !== id) {
         throw new BadRequestException(`A placa ${cleanPlate} já pertence a outro veículo no sistema.`);
       }

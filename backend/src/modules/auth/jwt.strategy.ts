@@ -1,5 +1,3 @@
-//backend/src/modules/auth/jwt.strategy.ts
-
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -15,10 +13,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; workshopId?: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, name: true, email: true, role: true, permissions: true, isActive: true },
+      select: {
+        id: true,
+        workshopId: true, // <-- Garante o isolamento da sala em todas as rotas
+        name: true,
+        email: true,
+        role: true,
+        permissions: true,
+        commissionRate: true,
+        isActive: true,
+      },
     });
 
     if (!user || !user.isActive) {

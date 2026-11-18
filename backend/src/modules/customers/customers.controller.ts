@@ -21,8 +21,8 @@ export class CustomersController {
 
   @RequirePermissions(PERMISSIONS.CUSTOMERS_MANAGE)
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.customersService.findAll(search);
+  findAll(@Request() req: any, @Query('search') search?: string) {
+    return this.customersService.findAll(search, req.user.workshopId);
   }
 
   @RequirePermissions(PERMISSIONS.CUSTOMERS_MANAGE)
@@ -33,14 +33,14 @@ export class CustomersController {
 
   @RequirePermissions(PERMISSIONS.CUSTOMERS_MANAGE)
   @Post()
-  create(@Body() body: any) {
-    return this.customersService.createCustomer(body);
+  create(@Body() body: any, @Request() req: any) {
+    return this.customersService.createCustomer(body, req.user.workshopId);
   }
 
   @RequirePermissions(PERMISSIONS.CUSTOMERS_MANAGE)
   @Post('bulk-import')
   bulkImport(@Body() body: { rows: BulkImportRow[] }, @Request() req: any) {
-    return this.customersService.bulkImport(body.rows, req.user.id);
+    return this.customersService.bulkImport(body.rows, req.user.id, req.user.workshopId);
   }
 
   @RequirePermissions(PERMISSIONS.CUSTOMERS_MANAGE)

@@ -40,6 +40,32 @@ export interface BulkFinancialRow {
 export class FinancialService {
   constructor(private prisma: PrismaService) {}
 
+  private async resolveWorkshopId(userOrWorkshopId?: string): Promise<string> {
+    if (userOrWorkshopId) {
+      const byWorkshop = await this.prisma.workshopSettings.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { id: true },
+      });
+      if (byWorkshop) return byWorkshop.id;
+
+      const byUser = await this.prisma.user.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { workshopId: true },
+      });
+      if (byUser?.workshopId) return byUser.workshopId;
+    }
+
+    const firstWorkshop = await this.prisma.workshopSettings.findFirst({
+      select: { id: true },
+    });
+    if (firstWorkshop) return firstWorkshop.id;
+
+    const created = await this.prisma.workshopSettings.create({
+      data: { name: 'Minha Oficina' },
+    });
+    return created.id;
+  }
+
   // 1. Baixa Financeira da OS (suporta Múltiplos Pagamentos e calcula CMV automático)
   async settleServiceOrder(
     orderId: string,
@@ -97,6 +123,7 @@ export class FinancialService {
 
         await tx.financialTransaction.create({
           data: {
+            workshopId: order.workshopId,
             type: TransactionType.INCOME,
             category: TransactionCategory.SERVICE_ORDER,
             description: `Recebimento OS #${order.number} - ${order.vehicle.plate} (${order.customer.name})${customText}${instText}`,
@@ -112,6 +139,7 @@ export class FinancialService {
       if (totalPartsCost > 0) {
         await tx.financialTransaction.create({
           data: {
+            workshopId: order.workshopId,
             type: TransactionType.EXPENSE,
             category: TransactionCategory.PARTS_COST,
             description: `Custo de Peças (CMV) Ref. OS #${order.number} - ${order.vehicle.plate}`,
@@ -155,9 +183,13 @@ export class FinancialService {
       amount: number;
       paymentMethod: PaymentMethod;
       date?: string;
+      workshopId?: string;
     },
     userId: string,
+    workshopId?: string,
   ) {
+    const resolvedWorkshopId = await this.resolveWorkshopId(workshopId || dto.workshopId || userId);
+
     let parsedDate = new Date();
     if (dto.date) {
       const d = new Date(`${dto.date}T12:00:00`);
@@ -166,6 +198,7 @@ export class FinancialService {
 
     return this.prisma.financialTransaction.create({
       data: {
+        workshopId: resolvedWorkshopId,
         type: dto.type,
         category: dto.category,
         description: dto.description,
@@ -183,12 +216,21 @@ export class FinancialService {
   }
 
   // 4. Dashboard + DRE + Detalhamento Mão de Obra vs Peças + Filtro por Calendário
-  async getDashboardData(params: {
-    month?: number;
-    year?: number;
-    startDate?: string;
-    endDate?: string;
-  }) {
+  async getDashboardData(
+    params: {
+      month?: number;
+      year?: number;
+      startDate?: string;
+      endDate?: string;
+      workshopId?: string;
+    },
+    userOrWorkshopId?: string,
+  ) {
+    const targetWorkshopId =
+      userOrWorkshopId || params.workshopId
+        ? await this.resolveWorkshopId(userOrWorkshopId || params.workshopId)
+        : undefined;
+
     let start: Date;
     let end: Date;
 
@@ -205,6 +247,7 @@ export class FinancialService {
 
     const transactions = await this.prisma.financialTransaction.findMany({
       where: {
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
         date: { gte: start, lte: end },
       },
       include: {
@@ -293,10 +336,12 @@ export class FinancialService {
   }
 
   // 5. IMPORTAÇÃO EM LOTE DE CUSTOS E LANÇAMENTOS FINANCEIROS VIA PLANILHA
-  async bulkImport(rows: BulkFinancialRow[], userId: string) {
+  async bulkImport(rows: BulkFinancialRow[], userId: string, workshopId?: string) {
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       throw new BadRequestException('Nenhum lançamento válido encontrado na planilha.');
     }
+
+    const resolvedWorkshopId = await this.resolveWorkshopId(workshopId || userId);
 
     const parseMoney = (val: any): number => {
       if (typeof val === 'number') return Math.abs(val);
@@ -446,6 +491,7 @@ export class FinancialService {
       try {
         await this.prisma.financialTransaction.create({
           data: {
+            workshopId: resolvedWorkshopId,
             type: txType,
             category: txCategory,
             description: desc,
@@ -472,7 +518,15 @@ export class FinancialService {
   }
 
   // 6. RELATÓRIO DE PRODUTIVIDADE E COMISSÕES
-  async getMechanicProductivity(params: { startDate?: string; endDate?: string; month?: number; year?: number }) {
+  async getMechanicProductivity(
+    params: { startDate?: string; endDate?: string; month?: number; year?: number; workshopId?: string },
+    userOrWorkshopId?: string,
+  ) {
+    const targetWorkshopId =
+      userOrWorkshopId || params.workshopId
+        ? await this.resolveWorkshopId(userOrWorkshopId || params.workshopId)
+        : undefined;
+
     let start: Date;
     let end: Date;
 
@@ -487,9 +541,9 @@ export class FinancialService {
       end = new Date(y, m, 0, 23, 59, 59, 999);
     }
 
-    // Busca apenas OS finalizadas que possuem mecânico vinculado
     const orders = await this.prisma.serviceOrder.findMany({
       where: {
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
         status: 'COMPLETED',
         exitDate: { gte: start, lte: end },
         mechanicId: { not: null },
@@ -520,14 +574,15 @@ export class FinancialService {
           orders: [],
         };
       }
-      
 
+      const laborTotal = os.items
+        .filter((i) => i.type === 'LABOR')
+        .reduce((acc, i) => acc + Number(i.totalPrice || 0), 0);
 
-      // Isola o valor gerado APENAS por Mão de Obra (despreza peças)
-      const laborTotal = os.items.filter((i) => i.type === 'LABOR').reduce((acc, i) => acc + Number(i.totalPrice || 0), 0);
-      
-      // Define a taxa: usa a combinada da OS ou a padrão do mecânico
-      const activeRate = os.mechanicCommissionRate !== null ? os.mechanicCommissionRate : (mech.commissionRate || 0);
+      const activeRate =
+        os.mechanicCommissionRate !== null
+          ? os.mechanicCommissionRate
+          : mech.commissionRate || 0;
       const commission = (laborTotal * activeRate) / 100;
 
       report[mech.id].osCount += 1;
@@ -552,7 +607,7 @@ export class FinancialService {
     return {
       totalCommissions,
       totalLaborTeam,
-      mechanics: Object.values(report).sort((a: any, b: any) => b.laborRevenue - a.laborRevenue), // Ordena pelos que mais produziram
+      mechanics: Object.values(report).sort((a: any, b: any) => b.laborRevenue - a.laborRevenue),
     };
   }
 }

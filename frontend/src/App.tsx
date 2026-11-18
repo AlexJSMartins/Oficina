@@ -11,6 +11,7 @@ import CustomersPage from './pages/admin/CustomersPage';
 import WorkshopSettingsPage from './pages/admin/WorkshopSettingsPage';
 import InventoryPage from './pages/admin/InventoryPage';
 import Header from './components/Header';
+import RegisterPage from './pages/RegisterPage';
 
 function ProtectedLayout({
   children,
@@ -45,6 +46,9 @@ export default function App() {
           <Routes>
             {/* Rota Pública de Login */}
             <Route path="/login" element={<LoginPage />} />
+            
+            {/* Rota Pública de Registro de Oficina */}
+            <Route path="/cadastro" element={<RegisterPage />} />
 
             {/* Rota Pública de Acompanhamento do Cliente */}
             <Route path="/acompanhamento/:token" element={<ClientTrackingPage />} />

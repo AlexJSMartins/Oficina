@@ -6,8 +6,10 @@ export const PERMISSIONS = {
   BUDGETS_MANAGE: 'budgets:manage',
   FINANCIAL_CASHFLOW: 'financial:cashflow',
   FINANCIAL_DRE: 'financial:dre',
-  USERS_MANAGE: 'users:manage',
   FINANCIAL_MANAGE: 'financial:manage',
+  INVENTORY_MANAGE: 'inventory:manage',
+  USERS_MANAGE: 'users:manage',
+  SETTINGS_MANAGE: 'settings:manage',
 } as const;
 
 export const DEFAULT_ROLE_PERMISSIONS = {

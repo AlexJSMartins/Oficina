@@ -5,10 +5,40 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class CatalogService {
   constructor(private prisma: PrismaService) {}
 
+  // Resolve automaticamente o workshopId a partir de um userId, workshopId direto ou oficina padrão
+  private async resolveWorkshopId(userOrWorkshopId?: string): Promise<string> {
+    if (userOrWorkshopId) {
+      const byWorkshop = await this.prisma.workshopSettings.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { id: true },
+      });
+      if (byWorkshop) return byWorkshop.id;
+
+      const byUser = await this.prisma.user.findUnique({
+        where: { id: userOrWorkshopId },
+        select: { workshopId: true },
+      });
+      if (byUser?.workshopId) return byUser.workshopId;
+    }
+
+    const firstWorkshop = await this.prisma.workshopSettings.findFirst({
+      select: { id: true },
+    });
+    if (firstWorkshop) return firstWorkshop.id;
+
+    const created = await this.prisma.workshopSettings.create({
+      data: { name: 'Minha Oficina' },
+    });
+    return created.id;
+  }
+
   // 1. Busca Rápida para o Autocomplete do Modal de Orçamento
-  async searchCatalog(query: string) {
+  async searchCatalog(query: string, workshopId?: string) {
+    const targetWorkshopId = workshopId ? await this.resolveWorkshopId(workshopId) : undefined;
+
     if (!query || query.trim().length === 0) {
       return this.prisma.catalogItem.findMany({
+        where: targetWorkshopId ? { workshopId: targetWorkshopId } : undefined,
         take: 15,
         include: { supplier: true },
         orderBy: { name: 'asc' },
@@ -17,6 +47,7 @@ export class CatalogService {
 
     return this.prisma.catalogItem.findMany({
       where: {
+        ...(targetWorkshopId ? { workshopId: targetWorkshopId } : {}),
         OR: [
           { name: { contains: query.trim(), mode: 'insensitive' } },
           { code: { contains: query.trim(), mode: 'insensitive' } },
@@ -29,8 +60,11 @@ export class CatalogService {
   }
 
   // 2. Listar todo o Catálogo (Peças e Serviços) com Fornecedor e Histórico
-  async getInventory() {
+  async getInventory(workshopId?: string) {
+    const targetWorkshopId = workshopId ? await this.resolveWorkshopId(workshopId) : undefined;
+
     const items = await this.prisma.catalogItem.findMany({
+      where: targetWorkshopId ? { workshopId: targetWorkshopId } : undefined,
       include: {
         supplier: true,
         movements: {
@@ -42,6 +76,7 @@ export class CatalogService {
     });
 
     const movements = await this.prisma.stockMovement.findMany({
+      where: targetWorkshopId ? { workshopId: targetWorkshopId } : undefined,
       include: {
         item: {
           include: { supplier: true },
@@ -55,12 +90,13 @@ export class CatalogService {
   }
 
   // 3. Criar Peça ou Serviço Padrão
-  async createItem(dto: any, userId: string) {
+  async createItem(dto: any, userId: string, workshopId?: string) {
+    const resolvedWorkshopId = await this.resolveWorkshopId(workshopId || dto.workshopId || userId);
     const cleanCode = dto.code ? String(dto.code).trim().toUpperCase() : null;
 
     if (cleanCode) {
-      const existing = await this.prisma.catalogItem.findUnique({
-        where: { code: cleanCode },
+      const existing = await this.prisma.catalogItem.findFirst({
+        where: { code: cleanCode, workshopId: resolvedWorkshopId },
       });
       if (existing) {
         throw new BadRequestException(`O código ${cleanCode} já está em uso por "${existing.name}".`);
@@ -71,6 +107,7 @@ export class CatalogService {
 
     const created = await this.prisma.catalogItem.create({
       data: {
+        workshopId: resolvedWorkshopId,
         type: dto.type || 'PART',
         code: cleanCode,
         name: String(dto.name).trim(),
@@ -85,6 +122,7 @@ export class CatalogService {
     if (initialStock > 0) {
       await this.prisma.stockMovement.create({
         data: {
+          workshopId: resolvedWorkshopId,
           catalogItemId: created.id,
           type: 'IN',
           quantity: initialStock,
@@ -99,11 +137,14 @@ export class CatalogService {
 
   // 4. Editar Peça ou Serviço
   async updateItem(id: string, dto: any) {
+    const currentItem = await this.prisma.catalogItem.findUnique({ where: { id } });
+    if (!currentItem) throw new NotFoundException('Item não encontrado.');
+
     const cleanCode = dto.code ? String(dto.code).trim().toUpperCase() : null;
 
     if (cleanCode) {
-      const existing = await this.prisma.catalogItem.findUnique({
-        where: { code: cleanCode },
+      const existing = await this.prisma.catalogItem.findFirst({
+        where: { code: cleanCode, workshopId: currentItem.workshopId },
       });
       if (existing && existing.id !== id) {
         throw new BadRequestException(`O código ${cleanCode} já pertence a outro item.`);
@@ -158,6 +199,7 @@ export class CatalogService {
       }),
       this.prisma.stockMovement.create({
         data: {
+          workshopId: item.workshopId,
           catalogItemId: id,
           type: dto.type,
           quantity: qty,
@@ -197,6 +239,7 @@ export class CatalogService {
       }),
       this.prisma.stockMovement.create({
         data: {
+          workshopId: item.workshopId,
           catalogItemId: item.id,
           type: 'DEFECT',
           quantity: qty,
@@ -208,8 +251,11 @@ export class CatalogService {
   }
 
   // 8. Listar Fornecedores com Ranking e Métricas de Peças e Defeitos
-  async getAllSuppliers() {
+  async getAllSuppliers(workshopId?: string) {
+    const targetWorkshopId = workshopId ? await this.resolveWorkshopId(workshopId) : undefined;
+
     const suppliers = await this.prisma.supplier.findMany({
+      where: targetWorkshopId ? { workshopId: targetWorkshopId } : undefined,
       include: {
         items: true,
       },
@@ -243,9 +289,15 @@ export class CatalogService {
   }
 
   // 9. Criar Fornecedor
-  async createSupplier(dto: { name: string; phone?: string; email?: string; document?: string; rating?: number }) {
+  async createSupplier(
+    dto: { name: string; phone?: string; email?: string; document?: string; rating?: number; workshopId?: string },
+    userOrWorkshopId?: string,
+  ) {
+    const resolvedWorkshopId = await this.resolveWorkshopId(userOrWorkshopId || dto.workshopId);
+
     return this.prisma.supplier.create({
       data: {
+        workshopId: resolvedWorkshopId,
         name: String(dto.name).trim(),
         phone: dto.phone ? String(dto.phone).trim() : null,
         email: dto.email ? String(dto.email).trim() : null,
@@ -279,10 +331,12 @@ export class CatalogService {
   }
 
   // 12. Importação em Lote via Excel (Peças, Serviços e Fornecedores Automáticos)
-  async bulkImport(rows: any[], userId: string) {
+  async bulkImport(rows: any[], userId: string, workshopId?: string) {
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       throw new BadRequestException('A planilha enviada está vazia.');
     }
+
+    const resolvedWorkshopId = await this.resolveWorkshopId(workshopId || userId);
 
     const parseNum = (val: any): number => {
       if (typeof val === 'number') return val;
@@ -307,9 +361,10 @@ export class CatalogService {
         rawType.includes('SERV') || rawType.includes('LABOR') || rawType.includes('MAO');
       const itemType = isLabor ? 'LABOR' : 'PART';
 
-      const code = row.code || row.Codigo || row.SKU
-        ? String(row.code || row.Codigo || row.SKU).trim().toUpperCase()
-        : null;
+      const code =
+        row.code || row.Codigo || row.SKU
+          ? String(row.code || row.Codigo || row.SKU).trim().toUpperCase()
+          : null;
 
       const costPrice = parseNum(row.costPrice ?? row.Custo ?? row.Preco_Custo ?? 0);
       const salePrice = parseNum(row.salePrice ?? row.Venda ?? row.Preco_Venda ?? 0);
@@ -320,20 +375,26 @@ export class CatalogService {
       let supplierId: string | null = null;
       if (supplierName && !isLabor) {
         let sup = await this.prisma.supplier.findFirst({
-          where: { name: { equals: supplierName, mode: 'insensitive' } },
+          where: { name: { equals: supplierName, mode: 'insensitive' }, workshopId: resolvedWorkshopId },
         });
         if (!sup) {
           sup = await this.prisma.supplier.create({
-            data: { name: supplierName, rating: 5.0 },
+            data: { workshopId: resolvedWorkshopId, name: supplierName, rating: 5.0 },
           });
         }
         supplierId = sup.id;
       }
 
       const existing = code
-        ? await this.prisma.catalogItem.findUnique({ where: { code } })
+        ? await this.prisma.catalogItem.findFirst({
+            where: { code, workshopId: resolvedWorkshopId },
+          })
         : await this.prisma.catalogItem.findFirst({
-            where: { name: { equals: name, mode: 'insensitive' }, type: itemType },
+            where: {
+              name: { equals: name, mode: 'insensitive' },
+              type: itemType,
+              workshopId: resolvedWorkshopId,
+            },
           });
 
       if (existing) {
@@ -352,6 +413,7 @@ export class CatalogService {
       } else {
         const created = await this.prisma.catalogItem.create({
           data: {
+            workshopId: resolvedWorkshopId,
             type: itemType,
             code,
             name,
@@ -366,6 +428,7 @@ export class CatalogService {
         if (stock > 0) {
           await this.prisma.stockMovement.create({
             data: {
+              workshopId: resolvedWorkshopId,
               catalogItemId: created.id,
               type: 'IN',
               quantity: stock,

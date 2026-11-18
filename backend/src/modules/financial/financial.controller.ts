@@ -21,17 +21,22 @@ export class FinancialController {
 
   @Get('dashboard')
   getDashboard(
+    @Request() req: any,
     @Query('month') month?: string,
     @Query('year') year?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.financialService.getDashboardData({
-      month: month ? Number(month) : undefined,
-      year: year ? Number(year) : undefined,
-      startDate,
-      endDate,
-    });
+    return this.financialService.getDashboardData(
+      {
+        month: month ? Number(month) : undefined,
+        year: year ? Number(year) : undefined,
+        startDate,
+        endDate,
+        workshopId: req.user.workshopId,
+      },
+      req.user.workshopId,
+    );
   }
 
   @Post('settle-order/:orderId')
@@ -45,12 +50,12 @@ export class FinancialController {
 
   @Post('transactions')
   createTransaction(@Body() body: any, @Request() req: any) {
-    return this.financialService.createTransaction(body, req.user.id);
+    return this.financialService.createTransaction(body, req.user.id, req.user.workshopId);
   }
 
   @Post('bulk-import')
   bulkImport(@Body() body: { rows: BulkFinancialRow[] }, @Request() req: any) {
-    return this.financialService.bulkImport(body.rows, req.user.id);
+    return this.financialService.bulkImport(body.rows, req.user.id, req.user.workshopId);
   }
 
   @Delete('transactions/:id')
@@ -58,19 +63,23 @@ export class FinancialController {
     return this.financialService.deleteTransaction(id);
   }
 
-  // Rota para obter a produtividade dos mecânicos
   @Get('productivity')
   getProductivity(
+    @Request() req: any,
     @Query('month') month?: string,
     @Query('year') year?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.financialService.getMechanicProductivity({
-      month: month ? Number(month) : undefined,
-      year: year ? Number(year) : undefined,
-      startDate,
-      endDate,
-    });
+    return this.financialService.getMechanicProductivity(
+      {
+        month: month ? Number(month) : undefined,
+        year: year ? Number(year) : undefined,
+        startDate,
+        endDate,
+        workshopId: req.user.workshopId,
+      },
+      req.user.workshopId,
+    );
   }
 }

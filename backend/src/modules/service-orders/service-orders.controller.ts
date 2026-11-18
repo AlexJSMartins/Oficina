@@ -34,20 +34,20 @@ export class ServiceOrdersController {
     return this.serviceOrdersService.findAll(req.user);
   }
 
-  @Get('mechanics')
-  listMechanics() {
-    return this.serviceOrdersService.listMechanics();
+ @Get('mechanics')
+  listMechanics(@Request() req: any) {
+    return this.serviceOrdersService.listMechanics(req.user.workshopId);
   }
 
   @Get('lookup-plate')
-  lookupPlate(@Query('plate') plate: string) {
-    return this.serviceOrdersService.findVehicleByPlate(plate);
+  lookupPlate(@Request() req: any, @Query('plate') plate: string) {
+    return this.serviceOrdersService.findVehicleByPlate(plate, req.user.workshopId);
   }
 
   @RequirePermissions(PERMISSIONS.ORDERS_CHECKIN)
   @Post('check-in')
   createCheckIn(@Body() dto: CheckInDto, @Request() req: any) {
-    return this.serviceOrdersService.createCheckIn(dto, req.user.id);
+    return this.serviceOrdersService.createCheckIn(dto, req.user.id, req.user.workshopId);
   }
 
   @RequirePermissions(PERMISSIONS.ORDERS_DIAGNOSIS)

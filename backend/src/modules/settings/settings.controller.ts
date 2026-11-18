@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard, PermissionsGuard } from '../auth/permissions.guard';
 
@@ -6,16 +6,18 @@ import { JwtAuthGuard, PermissionsGuard } from '../auth/permissions.guard';
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
-  // Rota pública para carregar logo e cores no Portal do Cliente, Login e PDFs
+  // Se vier logado (Painel Admin), pega a oficina do usuário; se for público, aceita ?workshopId=
+  @UseGuards(JwtAuthGuard)
   @Get()
-  getSettings() {
-    return this.settingsService.getSettings();
+  getSettings(@Request() req: any, @Query('workshopId') workshopId?: string) {
+    const target = req.user?.workshopId || req.user?.id || workshopId;
+    return this.settingsService.getSettings(target);
   }
 
-  // Rota protegida para salvar o perfil da oficina
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Patch()
-  updateSettings(@Body() body: any) {
-    return this.settingsService.updateSettings(body);
+  updateSettings(@Request() req: any, @Body() body: any) {
+    const target = req.user?.workshopId || req.user?.id;
+    return this.settingsService.updateSettings(body, target);
   }
 }
