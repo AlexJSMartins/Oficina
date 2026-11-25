@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { api } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from '../../components/ConfirmModal';
+import InboundXmlImportModal from '@/components/fiscal/InboundXmlImportModal';
 import { CurrencyInput, PhoneInput, DocumentInput } from '../../components/MaskedInputs';
 import {
   Package,
@@ -21,6 +22,7 @@ import {
   ArrowUpCircle,
   Phone,
   Eye,
+  FileCode2,
 } from 'lucide-react';
 
 export default function InventoryPage() {
@@ -31,6 +33,9 @@ export default function InventoryPage() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+
+  // Modal de Importação de Nota de Compra (XML)
+  const [showXmlImportModal, setShowXmlImportModal] = useState(false);
 
   // Filtros
   const [search, setSearch] = useState('');
@@ -48,6 +53,14 @@ export default function InventoryPage() {
   const [itemStock, setItemStock] = useState('0');
   const [itemMinStock, setItemMinStock] = useState('2');
   const [itemSupplierId, setItemSupplierId] = useState('');
+
+  // Campos fiscais do item (NCM, CEST, CFOP, CSOSN, Unidade, Código no Fornecedor)
+  const [itemNcm, setItemNcm] = useState('87089990');
+  const [itemCest, setItemCest] = useState('');
+  const [itemCfopSaida, setItemCfopSaida] = useState('5102');
+  const [itemCsosn, setItemCsosn] = useState('102');
+  const [itemUnidade, setItemUnidade] = useState('UN');
+  const [itemCodigoFornecedor, setItemCodigoFornecedor] = useState('');
 
   // Modal de Fornecedor
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -107,6 +120,14 @@ export default function InventoryPage() {
       setItemStock(String(itemToEdit.stock || 0));
       setItemMinStock(String(itemToEdit.minStock || 0));
       setItemSupplierId(itemToEdit.supplierId || '');
+
+      // Carrega os dados fiscais salvos na peça
+      setItemNcm(itemToEdit.ncm || '87089990');
+      setItemCest(itemToEdit.cest || '');
+      setItemCfopSaida(itemToEdit.cfopPadraoSaida || '5102');
+      setItemCsosn(itemToEdit.csosn || '102');
+      setItemUnidade(itemToEdit.unidadeMedida || 'UN');
+      setItemCodigoFornecedor(itemToEdit.codigoFornecedor || '');
     } else {
       setEditingItem(null);
       setItemType(type);
@@ -117,6 +138,14 @@ export default function InventoryPage() {
       setItemStock('1');
       setItemMinStock('2');
       setItemSupplierId(selectedSupplierFilter || '');
+
+      // Reseta os dados fiscais para o padrão
+      setItemNcm('87089990');
+      setItemCest('');
+      setItemCfopSaida('5102');
+      setItemCsosn('102');
+      setItemUnidade('UN');
+      setItemCodigoFornecedor('');
     }
     setShowItemModal(true);
   };
@@ -132,6 +161,17 @@ export default function InventoryPage() {
       stock: itemType === 'LABOR' ? 0 : Number(itemStock || 0),
       minStock: itemType === 'LABOR' ? 0 : Number(itemMinStock || 0),
       supplierId: itemType === 'LABOR' ? null : itemSupplierId || null,
+      // Campos fiscais (aplicados em peças)
+      ...(itemType === 'PART'
+        ? {
+            ncm: itemNcm,
+            cest: itemCest,
+            cfopPadraoSaida: itemCfopSaida,
+            csosn: itemCsosn,
+            unidadeMedida: itemUnidade,
+            codigoFornecedor: itemCodigoFornecedor,
+          }
+        : {}),
     };
 
     try {
@@ -236,6 +276,10 @@ export default function InventoryPage() {
       Codigo: i.code || '',
       Nome: i.name,
       Fornecedor: i.supplier?.name || '',
+      NCM: i.ncm || '',
+      CFOP_Saida: i.cfopPadraoSaida || '',
+      CSOSN: i.csosn || '',
+      Unidade: i.unidadeMedida || 'UN',
       Preco_Custo: Number(i.costPrice || 0),
       Preco_Venda: Number(i.salePrice || 0),
       Estoque_Atual: Number(i.stock || 0),
@@ -283,6 +327,7 @@ export default function InventoryPage() {
     const matchesSearch =
       i.name.toLowerCase().includes(q) ||
       String(i.code || '').toLowerCase().includes(q) ||
+      String(i.ncm || '').toLowerCase().includes(q) ||
       String(i.supplier?.name || '').toLowerCase().includes(q);
     const matchesSupplier = selectedSupplierFilter ? i.supplierId === selectedSupplierFilter : true;
     const matchesLowStock = onlyLowStock ? i.stock <= i.minStock : true;
@@ -320,11 +365,19 @@ export default function InventoryPage() {
             Catálogo de Peças, Estoque, Serviços & Fornecedores
           </h1>
           <p className="text-sm text-slate-500">
-            Controle automático de estoque, tabela de mão de obra, ranking de fornecedores e peças com defeito.
+            Controle automático de estoque, dados fiscais (NCM/CFOP), entrada por XML, fornecedores e peças com defeito.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowXmlImportModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+          >
+            <FileCode2 className="w-4 h-4" /> Importar Nota de Compra (XML)
+          </button>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -333,15 +386,17 @@ export default function InventoryPage() {
             className="hidden"
           />
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
           >
             <Upload className="w-4 h-4" /> Importar Excel
           </button>
 
           <button
+            type="button"
             onClick={handleExportExcel}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
           >
             <Download className="w-4 h-4" /> Exportar Excel
           </button>
@@ -387,8 +442,9 @@ export default function InventoryPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-200 p-1.5 rounded-xl">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
+            type="button"
             onClick={() => setActiveTab('PARTS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'PARTS' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
             }`}
           >
@@ -396,8 +452,9 @@ export default function InventoryPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('SERVICES')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'SERVICES' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
             }`}
           >
@@ -405,8 +462,9 @@ export default function InventoryPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('SUPPLIERS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'SUPPLIERS' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
             }`}
           >
@@ -414,8 +472,9 @@ export default function InventoryPage() {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('DEFECTS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'DEFECTS'
                 ? 'bg-red-600 text-white shadow-sm'
                 : 'text-red-700 hover:bg-red-100'
@@ -428,22 +487,25 @@ export default function InventoryPage() {
         <div className="flex items-center gap-2">
           {activeTab === 'SUPPLIERS' ? (
             <button
+              type="button"
               onClick={() => openSupplierForm()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Novo Fornecedor
             </button>
           ) : activeTab === 'SERVICES' ? (
             <button
+              type="button"
               onClick={() => openItemForm('LABOR')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Novo Serviço Padrão
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => openItemForm('PART')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Cadastrar Nova Peça
             </button>
@@ -457,7 +519,7 @@ export default function InventoryPage() {
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
-              placeholder="Buscar por código, nome da peça, serviço ou fornecedor..."
+              placeholder="Buscar por código, NCM, nome da peça, serviço ou fornecedor..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border rounded-lg text-xs bg-slate-50 focus:bg-white"
@@ -482,7 +544,7 @@ export default function InventoryPage() {
               <button
                 type="button"
                 onClick={() => setOnlyLowStock(!onlyLowStock)}
-                className={`px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition ${
+                className={`px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition cursor-pointer ${
                   onlyLowStock
                     ? 'bg-amber-500 text-white border-amber-600'
                     : 'bg-amber-50 text-amber-900 border-amber-200'
@@ -497,11 +559,11 @@ export default function InventoryPage() {
 
       {/* ABA 1: PEÇAS E ESTOQUE */}
       {activeTab === 'PARTS' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs uppercase border-b">
-                <th className="py-3 px-4">Código / Peça</th>
+                <th className="py-3 px-4">Código / Peça / Fiscal</th>
                 <th className="py-3 px-4">Fornecedor</th>
                 <th className="py-3 px-4 text-center">Estoque Atual</th>
                 <th className="py-3 px-4 text-right">Preço Custo</th>
@@ -527,7 +589,12 @@ export default function InventoryPage() {
                         <span className="text-[10px] font-mono font-bold text-slate-400 block">
                           {p.code || 'SEM CÓDIGO'}
                         </span>
-                        <span className="font-bold text-slate-900">{p.name}</span>
+                        <span className="font-bold text-slate-900 block">{p.name}</span>
+                        <span className="text-[10px] text-slate-500">
+                          NCM: <strong>{p.ncm || '87089990'}</strong> • CFOP:{' '}
+                          {p.cfopPadraoSaida || '5102'} • CSOSN: {p.csosn || '102'} •{' '}
+                          {p.unidadeMedida || 'UN'}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-xs font-semibold text-slate-600">
                         {p.supplier?.name || <span className="text-slate-400">Não vinculado</span>}
@@ -540,7 +607,7 @@ export default function InventoryPage() {
                               : 'bg-emerald-100 text-emerald-700'
                           }`}
                         >
-                          {p.stock} un
+                          {p.stock} {String(p.unidadeMedida || 'un').toLowerCase()}
                         </span>
                         <span className="block text-[10px] text-slate-400 mt-0.5">
                           Mín: {p.minStock}
@@ -569,18 +636,20 @@ export default function InventoryPage() {
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            type="button"
                             onClick={() => {
                               setStockModalItem(p);
                               setStockQty('1');
                               setStockNewCost(String(p.costPrice || ''));
                             }}
                             title="Dar Entrada de Estoque (Compra)"
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
                           >
                             <ArrowUpCircle className="w-4 h-4" />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => {
                               setDefectModalItem(p);
                               setDefectQty('1');
@@ -588,20 +657,22 @@ export default function InventoryPage() {
                               setDeductFromStock(true);
                             }}
                             title="Registrar Peça com Defeito / Garantia"
-                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"
+                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded cursor-pointer"
                           >
                             <AlertTriangle className="w-4 h-4" />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => openItemForm('PART', p)}
                             title="Editar Peça"
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() =>
                               setConfirmDelete({
                                 title: 'Excluir Peça do Catálogo',
@@ -614,7 +685,7 @@ export default function InventoryPage() {
                               })
                             }
                             title="Excluir Peça"
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -631,7 +702,7 @@ export default function InventoryPage() {
 
       {/* ABA 2: TABELA DE SERVIÇOS PADRÃO (MÃO DE OBRA) */}
       {activeTab === 'SERVICES' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs uppercase border-b">
@@ -661,12 +732,14 @@ export default function InventoryPage() {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          type="button"
                           onClick={() => openItemForm('LABOR', s)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() =>
                             setConfirmDelete({
                               title: 'Excluir Serviço Padrão',
@@ -678,7 +751,7 @@ export default function InventoryPage() {
                               },
                             })
                           }
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -769,23 +842,26 @@ export default function InventoryPage() {
 
                 <div className="flex items-center justify-between pt-3 border-t">
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedSupplierFilter(sup.id);
                       setActiveTab('PARTS');
                     }}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" /> Ver Peças e Valores →
                   </button>
 
                   <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => openSupplierForm(sup)}
-                      className="p-1.5 text-slate-500 hover:text-blue-600 rounded"
+                      className="p-1.5 text-slate-500 hover:text-blue-600 rounded cursor-pointer"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
+                      type="button"
                       onClick={() =>
                         setConfirmDelete({
                           title: 'Excluir Fornecedor',
@@ -797,7 +873,7 @@ export default function InventoryPage() {
                           },
                         })
                       }
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                      className="p-1.5 text-slate-400 hover:text-red-600 rounded cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -850,7 +926,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Histórico de Ocorrências de Defeito */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
             <div className="p-4 border-b bg-slate-50">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 Histórico Detalhado de Baixas por Defeito / Garantia ({defectMovements.length})
@@ -870,7 +946,9 @@ export default function InventoryPage() {
                 {defectMovements.map((m) => (
                   <tr key={m.id}>
                     <td className="py-2.5 px-4 text-slate-500">
-                      {new Date(m.createdAt).toLocaleString('pt-BR')}
+                      {new Date(m.createdAt).toLocaleString('pt-BR', {
+                        timeZone: 'America/Sao_Paulo',
+                      })}
                     </td>
                     <td className="py-2.5 px-4 font-bold text-slate-900">{m.item?.name}</td>
                     <td className="py-2.5 px-4 text-slate-600">
@@ -889,12 +967,16 @@ export default function InventoryPage() {
       {/* MODAL: CADASTRAR / EDITAR PEÇA OU SERVIÇO */}
       {showItemModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto p-6 space-y-4 shadow-xl">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">
                 {editingItem ? 'Editar Item do Catálogo' : 'Novo Item no Catálogo'}
               </h3>
-              <button onClick={() => setShowItemModal(false)} className="text-slate-400 font-bold">
+              <button
+                type="button"
+                onClick={() => setShowItemModal(false)}
+                className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+              >
                 ✕
               </button>
             </div>
@@ -904,7 +986,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setItemType('PART')}
-                  className={`py-2 rounded-lg font-bold border ${
+                  className={`py-2 rounded-lg font-bold border cursor-pointer ${
                     itemType === 'PART'
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-slate-50 text-slate-600'
@@ -915,7 +997,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setItemType('LABOR')}
-                  className={`py-2 rounded-lg font-bold border ${
+                  className={`py-2 rounded-lg font-bold border cursor-pointer ${
                     itemType === 'LABOR'
                       ? 'bg-emerald-600 text-white border-emerald-600'
                       : 'bg-slate-50 text-slate-600'
@@ -1013,17 +1095,108 @@ export default function InventoryPage() {
                 </div>
               )}
 
+              {/* Seção Fiscal da Peça (Sprint 2) */}
+              {itemType === 'PART' && (
+                <div className="border-t pt-3 mt-3 space-y-2.5 text-xs">
+                  <div className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                    Dados Fiscais (NF-e / NFC-e)
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">NCM (8 dígitos)</label>
+                      <input
+                        list="ncm-autopecas"
+                        maxLength={8}
+                        value={itemNcm}
+                        onChange={(e) => setItemNcm(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-2.5 py-2 border rounded-lg"
+                      />
+                      <datalist id="ncm-autopecas">
+                        <option value="87089990">87089990 - Outras partes/acessórios de veículos</option>
+                        <option value="87083019">87083019 - Pastilhas / Freios</option>
+                        <option value="84212300">84212300 - Filtros de óleo / combustível</option>
+                        <option value="84213100">84213100 - Filtros de ar</option>
+                        <option value="27101932">27101932 - Óleo lubrificante automotivo</option>
+                        <option value="87088000">87088000 - Amortecedores / Suspensão</option>
+                        <option value="85111000">85111000 - Velas de ignição</option>
+                        <option value="85071090">85071090 - Baterias automotivas</option>
+                        <option value="40103100">40103100 - Correias dentadas / V</option>
+                      </datalist>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">CFOP Saída</label>
+                      <select
+                        value={itemCfopSaida}
+                        onChange={(e) => setItemCfopSaida(e.target.value)}
+                        className="w-full px-2.5 py-2 border rounded-lg bg-white"
+                      >
+                        <option value="5102">5102 - Venda mercadoria (Tributada)</option>
+                        <option value="5405">5405 - Venda c/ Subst. Tributária (ST)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">CSOSN (Simples)</label>
+                      <select
+                        value={itemCsosn}
+                        onChange={(e) => setItemCsosn(e.target.value)}
+                        className="w-full px-2.5 py-2 border rounded-lg bg-white"
+                      >
+                        <option value="102">102 - Tributada s/ crédito</option>
+                        <option value="500">500 - ICMS cobrado por ST</option>
+                        <option value="101">101 - Tributada c/ crédito</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Unidade</label>
+                      <select
+                        value={itemUnidade}
+                        onChange={(e) => setItemUnidade(e.target.value)}
+                        className="w-full px-2.5 py-2 border rounded-lg bg-white"
+                      >
+                        <option value="UN">UN (Unidade)</option>
+                        <option value="PC">PC (Peça)</option>
+                        <option value="LT">LT (Litro)</option>
+                        <option value="JG">JG (Jogo)</option>
+                        <option value="KT">KT (Kit)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">CEST (opcional)</label>
+                      <input
+                        value={itemCest}
+                        onChange={(e) => setItemCest(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-2.5 py-2 border rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Cód. no Fornecedor</label>
+                      <input
+                        value={itemCodigoFornecedor}
+                        onChange={(e) => setItemCodigoFornecedor(e.target.value)}
+                        className="w-full px-2.5 py-2 border rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowItemModal(false)}
-                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold"
+                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer"
                 >
                   Salvar no Catálogo
                 </button>
@@ -1042,8 +1215,9 @@ export default function InventoryPage() {
                 {editingSupplier ? 'Editar Fornecedor' : 'Novo Fornecedor'}
               </h3>
               <button
+                type="button"
                 onClick={() => setShowSupplierModal(false)}
-                className="text-slate-400 font-bold"
+                className="text-slate-400 font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -1108,13 +1282,13 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setShowSupplierModal(false)}
-                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold"
+                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold cursor-pointer"
                 >
                   Salvar Fornecedor
                 </button>
@@ -1165,13 +1339,13 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setStockModalItem(null)}
-                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold"
+                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold cursor-pointer"
                 >
                   Somar ao Estoque
                 </button>
@@ -1229,13 +1403,13 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setDefectModalItem(null)}
-                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold"
+                  className="px-4 py-2 bg-slate-100 rounded-lg font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold cursor-pointer"
                 >
                   Confirmar Defeito
                 </button>
@@ -1244,6 +1418,13 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL: IMPORTAR NOTA DE COMPRA (XML) */}
+      <InboundXmlImportModal
+        isOpen={showXmlImportModal}
+        onClose={() => setShowXmlImportModal(false)}
+        onImported={loadData}
+      />
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {confirmDelete && (

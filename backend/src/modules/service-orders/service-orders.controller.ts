@@ -63,7 +63,6 @@ export class ServiceOrdersController {
   // =========================================================
   // UPLOAD DE MÚLTIPLAS FOTOS/VÍDEOS DE UMA SÓ VEZ (ATÉ 10 ARQUIVOS)
   // =========================================================
-  @RequirePermissions(PERMISSIONS.ORDERS_DIAGNOSIS)
   @Post(':id/media')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
@@ -76,6 +75,16 @@ export class ServiceOrdersController {
     @Body('description') description: string,
     @Request() req: any,
   ) {
+    const perms: string[] = req.user?.permissions || [];
+    const canUpload =
+      req.user?.role === 'ADMIN' ||
+      perms.includes(PERMISSIONS.ORDERS_DIAGNOSIS) ||
+      perms.includes(PERMISSIONS.ORDERS_CHECKIN);
+
+    if (!canUpload) {
+      throw new BadRequestException('Sem permissão para enviar fotos ou vídeos.');
+    }
+
     if (!files || files.length === 0) {
       throw new BadRequestException('Nenhum arquivo recebido.');
     }

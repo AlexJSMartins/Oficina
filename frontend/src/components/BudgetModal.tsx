@@ -11,9 +11,13 @@ import {
   CheckCircle2,
   Search,
   Send,
+  FileText,
 } from 'lucide-react';
 import { printWorkshopBudgetPdf } from '../utils/printBudgetPdf';
 import { CurrencyInput } from './MaskedInputs';
+
+
+import ServiceOrderFiscalModal from '../components/fiscal/ServiceOrderFiscalModal';
 
 interface BudgetModalProps {
   orderId: string;
@@ -42,6 +46,8 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
   const [mechanicNotes, setMechanicNotes] = useState('');
   const [savingBudget, setSavingBudget] = useState(false);
 
+  const [fiscalOrderId, setFiscalOrderId] = useState<string | null>(null);
+
   const loadOrder = async () => {
     try {
       const { data } = await api.get(`/service-orders/${orderId}/details`);
@@ -59,7 +65,7 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
     api
       .get('/settings')
       .then((res) => setWorkshop(res.data))
-      .catch(() => {});
+      .catch(() => { });
   }, [orderId]);
 
   // Busca automática no Catálogo de Estoque e Serviços Padrão
@@ -180,6 +186,16 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
             >
               <Printer className="w-4 h-4" /> Gerar PDF / Imprimir OS
             </button>
+
+             <button
+              type="button"
+              onClick={() => setFiscalOrderId(order.id)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition"
+            >
+              <FileText  className="w-4 h-4"  />
+              <span>Emitir Nota (Sandbox)</span>
+            </button>
+
             <button
               type="button"
               onClick={onClose}
@@ -187,6 +203,8 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
             >
               ✕
             </button>
+
+           
           </div>
         </div>
 
@@ -235,11 +253,10 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                              item.type === 'PART'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.type === 'PART'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-blue-100 text-blue-800'
+                              }`}
                           >
                             {item.type === 'PART' ? 'PEÇA' : 'SERVIÇO'}
                           </span>
@@ -254,9 +271,8 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
                         <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
                           {item.type === 'PART' && (
                             <span
-                              className={`font-semibold ${
-                                item.stock > 0 ? 'text-emerald-600' : 'text-red-600'
-                              }`}
+                              className={`font-semibold ${item.stock > 0 ? 'text-emerald-600' : 'text-red-600'
+                                }`}
                             >
                               Estoque: {item.stock} un.
                             </span>
@@ -365,7 +381,7 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
               </div>
             )}
           </div>
-          
+
 
 
           {/* Mão de Obra */}
@@ -468,6 +484,15 @@ export default function BudgetModal({ orderId, onClose, onUpdated }: BudgetModal
           </div>
         </div>
       </div>
+
+      <ServiceOrderFiscalModal
+        isOpen={Boolean(fiscalOrderId)}
+        serviceOrderId={fiscalOrderId || ''}
+        onClose={() => setFiscalOrderId(null)}
+        onSuccess={() => {
+          // Opcional: recarregar a lista de OS se quiser refletir algo na tela
+        }}
+      />
     </div>
   );
 }

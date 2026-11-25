@@ -8,9 +8,23 @@ generator client {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   RECEPTIONIST
   MECHANIC
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  EXPIRED
+  CANCELED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }
 
 enum OrderStatus {
@@ -79,6 +93,8 @@ model WorkshopSettings {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  subscription   Subscription?
+
   // Lado inverso das relações Multi-Tenant
   users          User[]
   customers      Customer[]
@@ -88,6 +104,98 @@ model WorkshopSettings {
   suppliers      Supplier[]
   catalogItems   CatalogItem[]
   stockMovements StockMovement[]
+
+  // Dados fiscais e integração DevNota (Multi-Tenant)
+  devnotaCompanyUuid String?
+  ambienteFiscal     String?  // Se nulo, usa DEVNOTA_ENVIRONMENT do .env ("sandbox" | "homologacao" | "producao")
+  naturezaJuridica   String   @default("PJ") // "PJ" | "PF"
+  cnae               String?
+  codigoIbge         String?
+  cep                String?
+  logradouro         String?
+  numeroEndereco     String?
+  bairro             String?
+  complemento        String?
+  inscricaoMunicipal String?
+  inscricaoEstadual  String?
+  regimeTributario   String   @default("SIMPLES")
+  cscId              String?
+  cscHomologacao     String?
+  cscProducao        String?
+
+  // Séries e numeração
+  serieNfe           Int      @default(1)
+  proximoNumeroNfe   Int      @default(1)
+  serieNfce          Int      @default(1)
+  proximoNumeroNfce  Int      @default(1)
+  serieRps           String   @default("1")
+  proximoNumeroRps   Int      @default(1)
+
+  // Certificado numeração 
+  certificadoVencimento DateTime?
+  codigoServicoPadrao   String?   @default("140101")
+
+  fiscalInvoices     FiscalInvoice[]
+  inboundInvoices    InboundInvoice[]
+}
+
+model FiscalInvoice {
+  id                String           @id @default(uuid())
+  workshopId        String
+  workshop          WorkshopSettings @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  uuidDevnota       String?
+  protocolo         Int?
+  referenciaExterna String           @unique
+  tipo              String           // "NFE" | "NFCE" | "NFSE"
+  finalidade        String           @default("NORMAL") // "NORMAL" | "DEVOLUCAO"
+  ambiente          String           @default("sandbox")
+  status            String           @default("RASCUNHO") // "RASCUNHO" | "PROCESSANDO" | "AUTORIZADA" | "REJEITADA" | "CANCELADA"
+
+  numero            Int?
+  serie             String?
+  chaveAcesso       String?
+  chaveReferenciada String?
+  serviceOrderId    String?
+  customerId        String?
+  supplierName      String?
+
+  xmlBase64         String?
+  pdfBase64         String?
+  linkPdf           String?
+  linkXml           String?
+  motivoRejeicao    String?
+  cartaCorrecao     String?
+
+  valorTotal        Float            @default(0)
+  payloadEnviado    String?
+  retornoApi        String?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+model InboundInvoice {
+  id           String           @id @default(uuid())
+  workshopId   String
+  workshop     WorkshopSettings @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  chaveAcesso  String           @unique
+  numero       Int
+  serie        String
+  dataEmissao  DateTime
+  supplierCnpj String
+  supplierName String
+  xmlContent   String
+  valorTotal   Float            @default(0)
+
+  // Vínculo com fornecedor e snapshot dos itens para devolução
+  supplierId      String?
+  supplier        Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  itensJson       String?
+  importedToStock Boolean          @default(true)
+
+  createdAt    DateTime         @default(now())
 }
 
 // ---------------------------------------------------------
@@ -124,6 +232,18 @@ model Customer {
   phone     String
   email     String?
   document  String?
+
+  // Endereço fiscal do cliente (obrigatório para NF-e)
+  cep            String?
+  logradouro     String?
+  numeroEndereco String?
+  complemento    String?
+  bairro         String?
+  cidade         String?
+  uf             String?
+  codigoIbge     String?
+
+  
   createdAt DateTime @default(now())
 
   vehicles      Vehicle[]
@@ -260,7 +380,21 @@ model Supplier {
   rating    Float    @default(5.0)
   createdAt DateTime @default(now())
 
+  // Dados completos vindos do XML da autopeças
+  ie              String?
+  cep             String?
+  logradouro      String?
+  numeroEndereco  String?
+  bairro          String?
+  cidade          String?
+  uf              String?
+  codigoIbge      String?
+
+  inboundInvoices InboundInvoice[]
+
   items CatalogItem[]
+
+
 }
 
 model CatalogItem {
@@ -284,6 +418,17 @@ model CatalogItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Dados fiscais para NF-e e vínculo com XML de compra
+  ean               String?
+  ncm               String?  @default("87089990")
+  cest              String?
+  cfopPadraoEntrada String?  @default("1102")
+  cfopPadraoSaida   String?  @default("5102")
+  csosn             String?  @default("102")
+  origem            String?  @default("0")
+  unidadeMedida     String?  @default("UN")
+  codigoFornecedor  String?
+
   // Garante que o código (SKU) seja único DENTRO da oficina, mas não no sistema inteiro
   @@unique([code, workshopId])
 }
@@ -302,4 +447,94 @@ model StockMovement {
   catalogItemId  String
   item           CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
   serviceOrderId String?
+}
+
+// ---------------------------------------------------------
+// MÓDULO COMERCIAL / SAAS (PLANOS, ASSINATURAS E ASAAS)
+// ---------------------------------------------------------
+model Plan {
+  id                  String         @id @default(uuid())
+  slug                String         @unique // ex: gestao-essencial, fiscal-100, fiscal-300, personalizado
+  name                String
+  subtitle            String?
+  badge               String?        // ex: "Mais Escolhido"
+  isPopular           Boolean        @default(false)
+  isActive            Boolean        @default(true)
+  isCustomContact     Boolean        @default(false) // true = botão leva para WhatsApp
+  whatsappNumber      String?        // ex: 5517999999999
+  whatsappMessage     String?        // mensagem pré-preenchida do plano personalizado
+  sortOrder           Int            @default(0)
+  features            String[]       @default([])
+
+  // Precificação (Mensal: PIX/Boleto/Cartão 1x | Anual: PIX/Boleto à vista ou Cartão até 12x com juros inclusos)
+  monthlyPrice        Float          @default(0) // ex: 99, 189, 299
+  annualCashPrice     Float          @default(0) // total anual à vista (PIX/Boleto)
+  annualCardPrice     Float          @default(0) // total anual no cartão em até 12x (juros já inclusos)
+  maxInstallments     Int            @default(12)
+
+  // Limites técnicos e liberação de recursos (Entitlements)
+  allowFiscalEmission Boolean        @default(false)
+  maxMonthlyInvoices  Int            @default(0) // 0, 100, 300...
+  maxUsers            Int            @default(5)
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  subscriptions       Subscription[]
+}
+
+model Subscription {
+  id                    String                @id @default(uuid())
+  workshopId            String                @unique
+  workshop              WorkshopSettings      @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  planId                String?
+  plan                  Plan?                 @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  status                SubscriptionStatus    @default(TRIAL)
+  billingCycle          BillingCycle          @default(MONTHLY)
+
+  trialEndsAt           DateTime
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+
+  // Sobrescritas manuais (para clientes do Plano Personalizado ou cortesias via /console)
+  customMonthlyInvoices Int?
+  customMonthlyPrice    Float?
+  manualOverride        Boolean               @default(false)
+  adminNotes            String?
+
+  // Referências no gateway Asaas
+  asaasCustomerId       String?
+  asaasSubscriptionId   String?
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  payments              SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id              String       @id @default(uuid())
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  asaasPaymentId  String?      @unique
+  billingType     String       // PIX, BOLETO, CREDIT_CARD
+  billingCycle    BillingCycle @default(MONTHLY)
+  installments    Int          @default(1)
+  amount          Float
+  status          String       @default("PENDING") // PENDING, CONFIRMED, RECEIVED, OVERDUE, REFUNDED, CANCELED
+
+  dueDate         DateTime
+  paidAt          DateTime?
+
+  invoiceUrl      String?
+  bankSlipUrl     String?
+  pixQrCodeBase64 String?
+  pixPayload      String?
+  webhookPayload  String?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }

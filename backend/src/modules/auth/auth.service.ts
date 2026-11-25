@@ -4,6 +4,8 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '@prisma/client';
 
+import { BillingService } from '../billing/billing.service';
+
 const ALL_ADMIN_PERMISSIONS = [
   'customers:manage',
   'orders:checkin',
@@ -23,6 +25,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private billingService: BillingService,
   ) {}
 
   // Cadastro público de novos Leads (Cria a Sala/Oficina + Usuário ADMIN isolado)
@@ -54,7 +57,7 @@ export class AuthService {
         },
       });
 
-      const createdUser = await tx.user.create({
+     const createdUser = await tx.user.create({
         data: {
           workshopId: createdWorkshop.id,
           name: data.adminName.trim(),
@@ -63,6 +66,18 @@ export class AuthService {
           role: Role.ADMIN,
           permissions: ALL_ADMIN_PERMISSIONS,
           isActive: true,
+        },
+      });
+
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+      await tx.subscription.create({
+        data: {
+          workshopId: createdWorkshop.id,
+          status: 'TRIAL',
+          billingCycle: 'MONTHLY',
+          trialEndsAt,
         },
       });
 
@@ -160,6 +175,9 @@ export class AuthService {
       commissionRate?: number;
     },
   ) {
+    // 1. Valida se a oficina pode criar novos usuários (assinatura ativa, limite de usuários, etc.)
+    await this.billingService.assertCanCreateUser(workshopId);
+    // 2. Verifica se o e-mail já está cadastrado em outro usuário da mesma oficina
     const exists = await this.prisma.user.findUnique({
       where: { email: data.email.toLowerCase().trim() },
     });

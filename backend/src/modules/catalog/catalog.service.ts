@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class CatalogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // Resolve automaticamente o workshopId a partir de um userId, workshopId direto ou oficina padrão
   private async resolveWorkshopId(userOrWorkshopId?: string): Promise<string> {
@@ -116,6 +116,15 @@ export class CatalogService {
         stock: initialStock,
         minStock: dto.type === 'LABOR' ? 0 : Number(dto.minStock || 0),
         supplierId: dto.supplierId || null,
+        ean: dto.ean ? String(dto.ean).trim() : null,
+        ncm: dto.ncm ? String(dto.ncm).replace(/\D/g, '').slice(0, 8) : '87089990',
+        cest: dto.cest ? String(dto.cest).replace(/\D/g, '') : null,
+        cfopPadraoEntrada: dto.cfopPadraoEntrada || '1102',
+        cfopPadraoSaida: dto.cfopPadraoSaida || '5102',
+        csosn: dto.csosn || '102',
+        origem: dto.origem ?? '0',
+        unidadeMedida: dto.unidadeMedida || 'UN',
+        codigoFornecedor: dto.codigoFornecedor ? String(dto.codigoFornecedor).trim() : null,
       },
     });
 
@@ -162,6 +171,15 @@ export class CatalogService {
         stock: dto.stock !== undefined ? Number(dto.stock) : undefined,
         minStock: dto.minStock !== undefined ? Number(dto.minStock) : undefined,
         supplierId: dto.supplierId === '' ? null : dto.supplierId,
+        ...(dto.ean !== undefined ? { ean: dto.ean ? String(dto.ean).trim() : null } : {}),
+        ...(dto.ncm !== undefined ? { ncm: String(dto.ncm || '87089990').replace(/\D/g, '').slice(0, 8) } : {}),
+        ...(dto.cest !== undefined ? { cest: dto.cest ? String(dto.cest).replace(/\D/g, '') : null } : {}),
+        ...(dto.cfopPadraoEntrada !== undefined ? { cfopPadraoEntrada: dto.cfopPadraoEntrada || '1102' } : {}),
+        ...(dto.cfopPadraoSaida !== undefined ? { cfopPadraoSaida: dto.cfopPadraoSaida || '5102' } : {}),
+        ...(dto.csosn !== undefined ? { csosn: dto.csosn || '102' } : {}),
+        ...(dto.origem !== undefined ? { origem: dto.origem || '0' } : {}),
+        ...(dto.unidadeMedida !== undefined ? { unidadeMedida: dto.unidadeMedida || 'UN' } : {}),
+        ...(dto.codigoFornecedor !== undefined ? { codigoFornecedor: dto.codigoFornecedor || null } : {}),
       },
     });
   }
@@ -387,15 +405,15 @@ export class CatalogService {
 
       const existing = code
         ? await this.prisma.catalogItem.findFirst({
-            where: { code, workshopId: resolvedWorkshopId },
-          })
+          where: { code, workshopId: resolvedWorkshopId },
+        })
         : await this.prisma.catalogItem.findFirst({
-            where: {
-              name: { equals: name, mode: 'insensitive' },
-              type: itemType,
-              workshopId: resolvedWorkshopId,
-            },
-          });
+          where: {
+            name: { equals: name, mode: 'insensitive' },
+            type: itemType,
+            workshopId: resolvedWorkshopId,
+          },
+        });
 
       if (existing) {
         await this.prisma.catalogItem.update({

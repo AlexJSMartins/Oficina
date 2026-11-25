@@ -14,6 +14,9 @@ import { StorageModule } from './modules/storage/storage.module';
 import { PortalController } from './modules/portal/portal.controller';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { FiscalModule } from './modules/fiscal/fiscal.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { SuperAdminModule } from './modules/super-admi/super-admin.module';
 
 @Module({
   imports: [
@@ -28,6 +31,9 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     StorageModule,
     SettingsModule,
     CatalogModule,
+    FiscalModule,
+    BillingModule,
+    SuperAdminModule,
   ],
   controllers: [AppController, PortalController],
   providers: [AppService],

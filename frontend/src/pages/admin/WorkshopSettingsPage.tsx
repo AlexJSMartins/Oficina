@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { Building2, Palette, Upload, Save, Trash2, FileText } from 'lucide-react';
+import WorkshopFiscalConfigTab from '../../components/fiscal/WorkshopFiscalConfigTab';
+import { Building2, Palette, Upload, Save, Trash2, FileText, ShieldCheck } from 'lucide-react';
 
 export default function WorkshopSettingsPage() {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estado para alternar entre as abas "Perfil" e "Fiscal"
+  const [settingsTab, setSettingsTab] = useState<'PROFILE' | 'FISCAL'>('PROFILE');
 
   const [name, setName] = useState('Oficina Pro');
   const [slogan, setSlogan] = useState('');
@@ -85,192 +89,226 @@ export default function WorkshopSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Building2 className="w-6 h-6 text-blue-600" />
-          Perfil & Identidade Visual da Oficina
+          Configurações da Oficina
         </h1>
         <p className="text-sm text-slate-500">
-          Personalize a logo, cores, dados comerciais e termos de garantia exibidos nos PDFs e no Portal do Cliente.
+          Personalize a identidade visual dos PDFs/Portal e configure a emissão fiscal (NF-e, NFC-e e NFS-e).
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Coluna 1 e 2: Dados Comerciais e Termos */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 border-b pb-2">
-            1. Dados da Empresa (Cabeçalho do PDF e Portal)
-          </h2>
+      {/* Navegação por Abas */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setSettingsTab('PROFILE')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            settingsTab === 'PROFILE'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          <span>Identidade Visual & Perfil</span>
+        </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="font-semibold text-slate-600">Nome Fantasia da Oficina *</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm font-bold"
-                required
-              />
-            </div>
+        <button
+          type="button"
+          onClick={() => setSettingsTab('FISCAL')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            settingsTab === 'FISCAL'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Configuração Fiscal (NF-e / NFS-e)</span>
+        </button>
+      </div>
 
-            <div>
-              <label className="font-semibold text-slate-600">Slogan / Especialidade</label>
-              <input
-                placeholder="Ex: Especializada em Injeção e Suspensão"
-                value={slogan}
-                onChange={(e) => setSlogan(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
-              />
-            </div>
+      {/* Conteúdo Condicional da Aba */}
+      {settingsTab === 'FISCAL' ? (
+        <WorkshopFiscalConfigTab />
+      ) : (
+        <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Coluna 1 e 2: Dados Comerciais e Termos */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 border-b pb-2">
+              1. Dados da Empresa (Cabeçalho do PDF e Portal)
+            </h2>
 
-            <div>
-              <label className="font-semibold text-slate-600">CNPJ / CPF</label>
-              <input
-                placeholder="00.000.000/0001-00"
-                value={document}
-                onChange={(e) => setDocument(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="font-semibold text-slate-600">Telefone / WhatsApp da Oficina</label>
-              <input
-                placeholder="(17) 99999-9999"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="text-xs">
-            <label className="font-semibold text-slate-600">Endereço Completo</label>
-            <input
-              placeholder="Av. Brasil, 1500 - Centro - São José do Rio Preto/SP"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
-            />
-          </div>
-
-          <div className="text-xs pt-2">
-            <label className="font-semibold text-slate-600 flex items-center gap-1">
-              <FileText className="w-3.5 h-3.5 text-slate-400" />
-              Termos de Garantia / Rodapé do Orçamento em PDF
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Ex: Garantia de 90 dias sobre a mão de obra. Orçamento válido por 7 dias."
-              value={warrantyTerms}
-              onChange={(e) => setWarrantyTerms(e.target.value)}
-              className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Coluna 3: Logo e Cores da Marca */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-5 h-fit">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 border-b pb-2 flex items-center gap-1.5">
-            <Palette className="w-4 h-4 text-blue-600" />
-            2. Logo & Cores do PDF
-          </h2>
-
-          {/* Upload da Logo */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-600">Logotipo da Oficina</label>
-            {logoUrl ? (
-              <div className="p-4 border rounded-xl bg-slate-50 flex flex-col items-center gap-3">
-                <img src={logoUrl} alt="Logo Oficina" className="max-h-20 object-contain" />
-                <button
-                  type="button"
-                  onClick={() => setLogoUrl('')}
-                  className="text-xs text-red-600 hover:underline flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Remover Logo
-                </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-600">Nome Fantasia da Oficina *</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg text-sm font-bold"
+                  required
+                />
               </div>
-            ) : (
-              <div className="p-6 border-2 border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400">
-                Nenhuma logo enviada
-              </div>
-            )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
+              <div>
+                <label className="font-semibold text-slate-600">Slogan / Especialidade</label>
+                <input
+                  placeholder="Ex: Especializada em Injeção e Suspensão"
+                  value={slogan}
+                  onChange={(e) => setSlogan(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-600">CNPJ / CPF</label>
+                <input
+                  placeholder="00.000.000/0001-00"
+                  value={document}
+                  onChange={(e) => setDocument(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-600">Telefone / WhatsApp da Oficina</label>
+                <input
+                  placeholder="(17) 99999-9999"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="text-xs">
+              <label className="font-semibold text-slate-600">Endereço Completo</label>
+              <input
+                placeholder="Av. Brasil, 1500 - Centro - São José do Rio Preto/SP"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+
+            <div className="text-xs pt-2">
+              <label className="font-semibold text-slate-600 flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                Termos de Garantia / Rodapé do Orçamento em PDF
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Ex: Garantia de 90 dias sobre a mão de obra. Orçamento válido por 7 dias."
+                value={warrantyTerms}
+                onChange={(e) => setWarrantyTerms(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Coluna 3: Logo e Cores da Marca */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-5 h-fit">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 border-b pb-2 flex items-center gap-1.5">
+              <Palette className="w-4 h-4 text-blue-600" />
+              2. Logo & Cores do PDF
+            </h2>
+
+            {/* Upload da Logo */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-600">Logotipo da Oficina</label>
+              {logoUrl ? (
+                <div className="p-4 border rounded-xl bg-slate-50 flex flex-col items-center gap-3">
+                  <img src={logoUrl} alt="Logo Oficina" className="max-h-20 object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl('')}
+                    className="text-xs text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Remover Logo
+                  </button>
+                </div>
+              ) : (
+                <div className="p-6 border-2 border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400">
+                  Nenhuma logo enviada
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" /> Enviar Imagem da Logo (PNG/JPG)
+              </button>
+            </div>
+
+            {/* Seletor de Cores */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Cor Principal</label>
+                <div className="flex items-center gap-2 border p-1.5 rounded-lg">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer border-0"
+                  />
+                  <span className="font-mono font-bold text-slate-700">{primaryColor}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Cor Destaque (Total)</label>
+                <div className="flex items-center gap-2 border p-1.5 rounded-lg">
+                  <input
+                    type="color"
+                    value={secondaryColor}
+                    onChange={(e) => setSecondaryColor(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer border-0"
+                  />
+                  <span className="font-mono font-bold text-slate-700">{secondaryColor}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mini-Preview ao vivo do Cabeçalho */}
+            <div className="pt-2">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
+                Prévia do Cabeçalho (PDF e Portal)
+              </span>
+              <div
+                style={{ backgroundColor: primaryColor }}
+                className="p-3.5 rounded-xl text-white flex items-center gap-3 shadow-sm"
+              >
+                {logoUrl && (
+                  <img
+                    src={logoUrl}
+                    alt="Preview"
+                    className="h-10 w-auto bg-white p-1 rounded object-contain shrink-0"
+                  />
+                )}
+                <div className="truncate">
+                  <div className="font-extrabold text-sm truncate">{name || 'Nome da Oficina'}</div>
+                  <div className="text-[11px] opacity-80 truncate">{slogan || 'Centro Automotivo'}</div>
+                </div>
+              </div>
+            </div>
+
             <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5"
+              type="submit"
+              disabled={saving}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5" /> Enviar Imagem da Logo (PNG/JPG)
+              <Save className="w-4 h-4" />
+              {saving ? 'Salvando...' : 'Salvar Identidade da Oficina'}
             </button>
           </div>
-
-          {/* Seletor de Cores */}
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
-            <div>
-              <label className="font-semibold text-slate-600 block mb-1">Cor Principal</label>
-              <div className="flex items-center gap-2 border p-1.5 rounded-lg">
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-0"
-                />
-                <span className="font-mono font-bold text-slate-700">{primaryColor}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="font-semibold text-slate-600 block mb-1">Cor Destaque (Total)</label>
-              <div className="flex items-center gap-2 border p-1.5 rounded-lg">
-                <input
-                  type="color"
-                  value={secondaryColor}
-                  onChange={(e) => setSecondaryColor(e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-0"
-                />
-                <span className="font-mono font-bold text-slate-700">{secondaryColor}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Mini-Preview ao vivo do Cabeçalho */}
-          <div className="pt-2">
-            <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
-              Prévia do Cabeçalho (PDF e Portal)
-            </span>
-            <div
-              style={{ backgroundColor: primaryColor }}
-              className="p-3.5 rounded-xl text-white flex items-center gap-3 shadow-sm"
-            >
-              {logoUrl && (
-                <img
-                  src={logoUrl}
-                  alt="Preview"
-                  className="h-10 w-auto bg-white p-1 rounded object-contain shrink-0"
-                />
-              )}
-              <div className="truncate">
-                <div className="font-extrabold text-sm truncate">{name || 'Nome da Oficina'}</div>
-                <div className="text-[11px] opacity-80 truncate">{slogan || 'Centro Automotivo'}</div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
-          >
-            <Save className="w-4 h-4" />
-            {saving ? 'Salvando...' : 'Salvar Identidade da Oficina'}
-          </button>
-        </div>
-      </form>
+        </form>
+      )}
     </div>
   );
 }
