@@ -419,13 +419,14 @@ export class BillingService {
         'A cobrança foi solicitada no Asaas, mas não retornou o identificador do pagamento.',
       );
     }
-    console.log('[Asaas] Cobrança criada:', {
+    /* console.log('[Asaas] Cobrança criada:', {
       id: asaasPayment.id,
       billingType: asaasPayment.billingType,
       status: asaasPayment.status,
       dueDate: asaasPayment.dueDate,
       invoiceUrl: asaasPayment.invoiceUrl,
-    });
+    }); */
+    
 
     // Se for PIX, busca QR Code (Base64) + Copia e Cola
     let pixQrCodeBase64: string | null = null;
