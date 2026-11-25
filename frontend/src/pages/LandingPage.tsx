@@ -595,16 +595,7 @@ export default function LandingPage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80" />
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
                   </div>
-                  <div className="text-[11px] font-mono text-slate-400 bg-slate-950 px-3 py-1 rounded-md border border-slate-800 truncate">
-                    app.oficinapro.com.br/
-                    {activePreview === 'KANBAN'
-                      ? 'admin/patio'
-                      : activePreview === 'DEVOLUCAO'
-                      ? 'admin/fiscal/devolucoes'
-                      : activePreview === 'PORTAL'
-                      ? 'acompanhamento/os-1048'
-                      : 'admin/financeiro-dre'}
-                  </div>
+                  
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                     AO VIVO
                   </span>
