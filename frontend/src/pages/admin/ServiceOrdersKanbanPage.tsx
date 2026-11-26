@@ -428,7 +428,7 @@ export default function ServiceOrdersKanbanPage() {
   }).length;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="w-full min-w-0 p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Cabeçalho + Alternador de Visão (2 abas limpas) */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
@@ -827,15 +827,16 @@ export default function ServiceOrdersKanbanPage() {
         </div>
       )}
 
-      {/* VISÃO 2 UNIFICADA: HISTÓRICO & FINALIZADOS (com PDF, Notas Fiscais, Ver OS e Histórico do Cliente) */}
+      {/* VISÃO 2 UNIFICADA: HISTÓRICO & FINALIZADOS (Cards em telas menores + Tabela em telas largas) */}
       {viewMode === 'HISTORY' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="w-full min-w-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* Cabeçalho e Filtros Responsivos */}
           <div className="p-4 border-b border-slate-200 space-y-3">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div>
-                <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  <span>
+              <div className="min-w-0">
+                <h2 className="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span className="break-words">
                     {isMechanic
                       ? `Meus Serviços Realizados (${historyOrders.length})`
                       : `Histórico de Ordens Finalizadas & Realizadas (${historyOrders.length})`}
@@ -846,7 +847,7 @@ export default function ServiceOrdersKanbanPage() {
                 </p>
               </div>
 
-              <div className="relative w-full lg:w-72">
+              <div className="relative w-full lg:w-72 shrink-0">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   placeholder="Buscar por OS, placa, modelo ou cliente..."
@@ -857,14 +858,14 @@ export default function ServiceOrdersKanbanPage() {
               </div>
             </div>
 
-            {/* Filtros combinados (Status + Período + Mecânico) */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
-              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                <Calendar className="w-3.5 h-3.5 text-slate-500 ml-1" />
+            {/* Filtros agrupados em grid responsivo (sem estourar largura no mobile) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-2.5 pt-1 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 w-full sm:w-auto">
+                <Calendar className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
                 <select
                   value={historyDateFilter}
                   onChange={(e) => setHistoryDateFilter(e.target.value as any)}
-                  className="px-2 py-1 border border-slate-300 rounded-md bg-white font-semibold text-slate-700"
+                  className="flex-1 sm:flex-none px-2 py-1 border border-slate-300 rounded-md bg-white font-semibold text-slate-700 min-w-0"
                 >
                   <option value="ALL">Todo o Período</option>
                   <option value="DAY">Por Dia</option>
@@ -876,7 +877,7 @@ export default function ServiceOrdersKanbanPage() {
                     type="date"
                     value={historyDate}
                     onChange={(e) => setHistoryDate(e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded-md bg-white font-medium"
+                    className="flex-1 sm:flex-none px-2 py-1 border border-slate-300 rounded-md bg-white font-medium min-w-0"
                   />
                 )}
                 {historyDateFilter === 'MONTH' && (
@@ -884,7 +885,7 @@ export default function ServiceOrdersKanbanPage() {
                     type="month"
                     value={historyMonth}
                     onChange={(e) => setHistoryMonth(e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded-md bg-white font-medium"
+                    className="flex-1 sm:flex-none px-2 py-1 border border-slate-300 rounded-md bg-white font-medium min-w-0"
                   />
                 )}
               </div>
@@ -892,7 +893,7 @@ export default function ServiceOrdersKanbanPage() {
               <select
                 value={historyStatusFilter}
                 onChange={(e) => setHistoryStatusFilter(e.target.value as any)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-slate-700"
+                className="w-full sm:w-auto max-w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-slate-700"
               >
                 <option value="COMPLETED">Somente Finalizados / Entregues</option>
                 <option value="READY_FOR_PICKUP">Somente Prontos (Aguard. Retirada)</option>
@@ -903,7 +904,7 @@ export default function ServiceOrdersKanbanPage() {
                 <select
                   value={historyMechanicFilter}
                   onChange={(e) => setHistoryMechanicFilter(e.target.value)}
-                  className="px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-slate-700"
+                  className="w-full sm:w-auto max-w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-slate-700"
                 >
                   <option value="">👤 Todos os Mecânicos</option>
                   {mechanics.map((m) => (
@@ -916,7 +917,157 @@ export default function ServiceOrdersKanbanPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* VISÃO CARDS — Celular, Tablet e Notebooks compactos (< xl) — ZERO scroll lateral */}
+          <div className="xl:hidden divide-y divide-slate-100">
+            {historyOrders.length === 0 ? (
+              <div className="py-10 px-4 text-center text-sm text-slate-400">
+                Nenhuma ordem encontrada para os filtros selecionados.
+              </div>
+            ) : (
+              historyOrders.map((order) => {
+                const customerId = order.customer?.id || order.customerId;
+                return (
+                  <div key={order.id} className="p-4 space-y-3 hover:bg-slate-50/70 transition">
+                    {/* Linha 1: OS + Status + Valor Total */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-bold text-slate-900 text-sm">#{order.number}</span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            order.status === 'COMPLETED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {order.status === 'COMPLETED' ? 'Entregue' : 'Pronto no Pátio'}
+                        </span>
+                      </div>
+                      <span className="font-extrabold text-slate-900 text-sm shrink-0">
+                        {fmtMoney(order.totalAmount)}
+                      </span>
+                    </div>
+
+                    {/* Linha 2: Veículo + Placa */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="bg-slate-900 text-white text-[11px] font-mono font-bold px-2 py-0.5 rounded shrink-0">
+                        {order.vehicle.plate}
+                      </span>
+                      <span className="font-semibold text-slate-800 break-words">
+                        {order.vehicle.brand} {order.vehicle.model} ({order.vehicle.year})
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        • {Number(order.currentKm || 0).toLocaleString('pt-BR')} km
+                      </span>
+                    </div>
+
+                    {/* Linha 3: Cliente, Mecânico e Datas agrupados */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 rounded-lg p-2.5 border border-slate-100 text-xs">
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="font-semibold text-slate-900 truncate">
+                          {order.customer.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Phone className="w-3 h-3 shrink-0 text-slate-400" />
+                          <span className="truncate">{order.customer.phone}</span>
+                        </div>
+                        {order.mechanic?.name && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <Wrench className="w-3 h-3 shrink-0 text-slate-400" />
+                            <span className="truncate">Mecânico: {order.mechanic.name}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sm:text-right space-y-0.5 text-[11px]">
+                        <div className="font-semibold text-emerald-700">
+                          Conclusão:{' '}
+                          {new Date(
+                            order.exitDate || order.updatedAt || order.entryDate,
+                          ).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                        </div>
+                        <div className="text-slate-400">
+                          Entrada: {new Date(order.entryDate).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Linha 4: Ações Rápidas agrupadas com quebra automática */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      {hasPermission('budgets:manage') && (
+                        <button
+                          type="button"
+                          onClick={() => setBudgetOrderId(order.id)}
+                          className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                          <span>OS</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={printingOrderId === order.id}
+                        onClick={() => handleQuickPrintPdf(order.id)}
+                        className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5 shrink-0" />
+                        <span>{printingOrderId === order.id ? '...' : 'PDF'}</span>
+                      </button>
+
+                      {!isMechanic && (
+                        <button
+                          type="button"
+                          onClick={() => setFiscalOrderId(order.id)}
+                          className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5 shrink-0" />
+                          <span>Notas</span>
+                        </button>
+                      )}
+
+                      {customerId && hasPermission('customers:manage') && (
+                        <button
+                          type="button"
+                          onClick={() => setHistoryCustomerId(customerId)}
+                          className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <User className="w-3.5 h-3.5 shrink-0" />
+                          <span>Cliente</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => shareViaWhatsApp(order)}
+                        title="Enviar link do portal no WhatsApp"
+                        className="px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      </button>
+
+                      {hasPermission('orders:diagnosis') && (
+                        <button
+                          type="button"
+                          onClick={() => revertStatus(order)}
+                          title={
+                            order.status === 'COMPLETED'
+                              ? 'Reabrir OS e devolver para o pátio'
+                              : 'Devolver veículo para Em Reparação'
+                          }
+                          className="px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* VISÃO TABELA — Apenas Desktop largo (>= xl) */}
+          <div className="hidden xl:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs sm:text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase border-b border-slate-200">
@@ -943,10 +1094,11 @@ export default function ServiceOrdersKanbanPage() {
                         <td className="py-3 px-4 align-top">
                           <div className="font-bold text-slate-900">#{order.number}</div>
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 ${order.status === 'COMPLETED'
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 ${
+                              order.status === 'COMPLETED'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-blue-100 text-blue-800'
-                              }`}
+                            }`}
                           >
                             {order.status === 'COMPLETED' ? 'Entregue' : 'Pronto no Pátio'}
                           </span>
@@ -991,7 +1143,6 @@ export default function ServiceOrdersKanbanPage() {
 
                         <td className="py-3 px-4 align-top text-right">
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                            {/* 1. Ver / Editar OS */}
                             {hasPermission('budgets:manage') && (
                               <button
                                 type="button"
@@ -1004,7 +1155,6 @@ export default function ServiceOrdersKanbanPage() {
                               </button>
                             )}
 
-                            {/* 2. PDF da Ordem de Serviço */}
                             <button
                               type="button"
                               disabled={printingOrderId === order.id}
@@ -1016,7 +1166,6 @@ export default function ServiceOrdersKanbanPage() {
                               <span>{printingOrderId === order.id ? '...' : 'PDF'}</span>
                             </button>
 
-                            {/* 3. Emitir / Consultar Notas Fiscais */}
                             {!isMechanic && (
                               <button
                                 type="button"
@@ -1029,7 +1178,6 @@ export default function ServiceOrdersKanbanPage() {
                               </button>
                             )}
 
-                            {/* 4. Histórico / Prontuário do Cliente */}
                             {customerId && hasPermission('customers:manage') && (
                               <button
                                 type="button"
@@ -1042,7 +1190,6 @@ export default function ServiceOrdersKanbanPage() {
                               </button>
                             )}
 
-                            {/* 5. WhatsApp / Copiar Link */}
                             <button
                               type="button"
                               onClick={() => shareViaWhatsApp(order)}
@@ -1052,7 +1199,6 @@ export default function ServiceOrdersKanbanPage() {
                               <MessageCircle className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* 6. Reabrir no Pátio */}
                             {hasPermission('orders:diagnosis') && (
                               <button
                                 type="button"

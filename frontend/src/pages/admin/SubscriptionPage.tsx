@@ -405,8 +405,8 @@ export default function SubscriptionPage() {
       ? Math.max(1, Math.min(12, checkoutPlan.maxInstallments || 12))
       : 1;
 
-  return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+ return (
+    <div className="w-full min-w-0 p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -484,14 +484,14 @@ export default function SubscriptionPage() {
 
         {/* Medidores de Consumo (Notas Fiscais + Usuários) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-xs">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-blue-600" />
-                Notas Fiscais Emitidas no Mês
+                <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Notas Fiscais Emitidas no Mês</span>
               </span>
               {ent.allowFiscalEmission ? (
-                <strong className="text-slate-900">
+                <strong className="text-slate-900 shrink-0">
                   {ent.invoicesUsedThisMonth} / {ent.maxMonthlyInvoices} notas
                 </strong>
               ) : (
@@ -502,12 +502,13 @@ export default function SubscriptionPage() {
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${invoicePct >= 95
-                  ? 'bg-red-500'
-                  : invoicePct >= 80
-                    ? 'bg-amber-500'
-                    : 'bg-blue-600'
-                  }`}
+                className={`h-full rounded-full transition-all ${
+                  invoicePct >= 95
+                    ? 'bg-red-500'
+                    : invoicePct >= 80
+                      ? 'bg-amber-500'
+                      : 'bg-blue-600'
+                }`}
                 style={{ width: `${ent.allowFiscalEmission ? invoicePct : 0}%` }}
               />
             </div>
@@ -518,13 +519,13 @@ export default function SubscriptionPage() {
             </p>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-xs">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-emerald-600" />
-                Usuários Ativos da Equipe
+                <Users className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Usuários Ativos da Equipe</span>
               </span>
-              <strong className="text-slate-900">
+              <strong className="text-slate-900 shrink-0">
                 {ent.usersCount} / {ent.maxUsers} usuários
               </strong>
             </div>
@@ -720,13 +721,111 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Histórico de Faturas */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-        <div className="px-5 py-4 border-b border-slate-200">
+     {/* Histórico de Faturas (Cards no mobile/tablet + Tabela no desktop) */}
+      <div className="w-full min-w-0 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-200">
           <h3 className="font-bold text-slate-900 text-sm">Histórico de Cobranças & Faturas</h3>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* VISÃO CARDS — Telas menores (< lg) — ZERO scroll lateral */}
+        <div className="lg:hidden divide-y divide-slate-100">
+          {(subscription?.payments || []).length === 0 ? (
+            <div className="py-8 px-4 text-center text-xs text-slate-400">
+              Nenhuma fatura gerada até o momento.
+            </div>
+          ) : (
+            subscription.payments.map((pay: any) => {
+              const st = PAY_STATUS_META[pay.status] || {
+                label: pay.status,
+                cls: 'bg-slate-100 text-slate-700',
+              };
+              const isPending = pay.status === 'PENDING' || pay.status === 'OVERDUE';
+
+              return (
+                <div key={pay.id} className="p-4 space-y-3 hover:bg-slate-50/70 transition text-xs">
+                  {/* Linha 1: Status + Valor */}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
+                      {st.label}
+                    </span>
+                    <span className="font-extrabold text-slate-900 text-sm shrink-0">
+                      {fmtMoney(pay.amount)}
+                    </span>
+                  </div>
+
+                  {/* Linha 2: Forma/Ciclo + Datas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                    <div>
+                      <div className="font-bold text-slate-800">
+                        {pay.billingType}
+                        {pay.installments > 1 && <span> ({pay.installments}x)</span>}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {pay.billingCycle === 'YEARLY' ? 'Plano Anual' : 'Plano Mensal'}
+                      </div>
+                    </div>
+
+                    <div className="sm:text-right">
+                      <div className="font-semibold text-slate-800">
+                        Venc: {new Date(pay.dueDate).toLocaleDateString('pt-BR')}
+                      </div>
+                      {pay.paidAt && (
+                        <div className="text-[11px] text-emerald-600 font-medium">
+                          Pago em {new Date(pay.paidAt).toLocaleDateString('pt-BR')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Linha 3: Ações */}
+                  {(pay.pixPayload || pay.bankSlipUrl || pay.invoiceUrl || isPending) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {pay.pixPayload && isPending && (
+                        <button
+                          type="button"
+                          onClick={() => copyPixCode(pay.pixPayload)}
+                          className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 shrink-0" /> Copiar PIX
+                        </button>
+                      )}
+
+                      {(pay.bankSlipUrl || pay.invoiceUrl) && (
+                        <a
+                          href={pay.bankSlipUrl || pay.invoiceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold inline-flex items-center justify-center gap-1"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" /> Fatura
+                        </a>
+                      )}
+
+                      {isPending && (
+                        <button
+                          type="button"
+                          disabled={syncingPaymentId === pay.id}
+                          onClick={() => handleSyncPayment(pay.id)}
+                          className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw
+                            className={`w-3.5 h-3.5 shrink-0 ${
+                              syncingPaymentId === pay.id ? 'animate-spin' : ''
+                            }`}
+                          />
+                          Verificar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* VISÃO TABELA — Desktop (>= lg) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] border-b border-slate-200">
@@ -776,11 +875,11 @@ export default function SubscriptionPage() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right font-extrabold text-slate-900">
+                      <td className="py-3 px-4 text-right font-extrabold text-slate-900 whitespace-nowrap">
                         {fmtMoney(pay.amount)}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {pay.pixPayload && isPending && (
                             <button
                               type="button"
@@ -810,8 +909,9 @@ export default function SubscriptionPage() {
                               className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold inline-flex items-center gap-1 cursor-pointer"
                             >
                               <RefreshCw
-                                className={`w-3 h-3 ${syncingPaymentId === pay.id ? 'animate-spin' : ''
-                                  }`}
+                                className={`w-3 h-3 ${
+                                  syncingPaymentId === pay.id ? 'animate-spin' : ''
+                                }`}
                               />
                               Verificar
                             </button>
@@ -1277,7 +1377,7 @@ export default function SubscriptionPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200">
+                    <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
                       <span className="text-[11px] text-slate-500 inline-flex items-center gap-1">
                         <ShieldCheck className="w-4 h-4 text-emerald-600" />
                         Processado com criptografia pelo Asaas

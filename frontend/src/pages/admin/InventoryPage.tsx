@@ -356,18 +356,19 @@ export default function InventoryPage() {
     0,
   );
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+ return (
+    <div className="w-full min-w-0 p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
             Catálogo de Peças, Estoque, Serviços & Fornecedores
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500">
             Controle automático de estoque, dados fiscais (NCM/CFOP), entrada por XML, fornecedores e peças com defeito.
           </p>
         </div>
+
 
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -513,10 +514,11 @@ export default function InventoryPage() {
         </div>
       </div>
 
+    
       {/* Barra de Busca e Filtros (Para Peças e Serviços) */}
       {(activeTab === 'PARTS' || activeTab === 'SERVICES') && (
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative flex-1 w-full">
+        <div className="w-full min-w-0 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               placeholder="Buscar por código, NCM, nome da peça, serviço ou fornecedor..."
@@ -527,11 +529,11 @@ export default function InventoryPage() {
           </div>
 
           {activeTab === 'PARTS' && (
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-2">
               <select
                 value={selectedSupplierFilter}
                 onChange={(e) => setSelectedSupplierFilter(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-xs bg-white font-semibold"
+                className="w-full lg:w-auto max-w-full px-3 py-2 border rounded-lg text-xs bg-white font-semibold"
               >
                 <option value="">🚚 Todos os Fornecedores</option>
                 {suppliers.map((s) => (
@@ -544,64 +546,52 @@ export default function InventoryPage() {
               <button
                 type="button"
                 onClick={() => setOnlyLowStock(!onlyLowStock)}
-                className={`px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition cursor-pointer ${
+                className={`w-full lg:w-auto justify-center px-3 py-2 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap ${
                   onlyLowStock
                     ? 'bg-amber-500 text-white border-amber-600'
                     : 'bg-amber-50 text-amber-900 border-amber-200'
                 }`}
               >
-                <AlertTriangle className="w-3.5 h-3.5" /> Estoque Baixo ({lowStockCount})
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Estoque Baixo ({lowStockCount})
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* ABA 1: PEÇAS E ESTOQUE */}
+      {/* ABA 1: PEÇAS E ESTOQUE (Cards em telas menores + Tabela no desktop largo) */}
       {activeTab === 'PARTS' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs uppercase border-b">
-                <th className="py-3 px-4">Código / Peça / Fiscal</th>
-                <th className="py-3 px-4">Fornecedor</th>
-                <th className="py-3 px-4 text-center">Estoque Atual</th>
-                <th className="py-3 px-4 text-right">Preço Custo</th>
-                <th className="py-3 px-4 text-right">Preço Venda</th>
-                <th className="py-3 px-4 text-center">Defeitos</th>
-                <th className="py-3 px-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {parts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-400">
-                    Nenhuma peça encontrada para este filtro.
-                  </td>
-                </tr>
-              ) : (
-                parts.map((p) => {
-                  const margin =
-                    p.costPrice > 0 ? ((p.salePrice - p.costPrice) / p.costPrice) * 100 : 100;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          {/* VISÃO CARDS — Celular, Tablet e Notebooks compactos (< xl) */}
+          <div className="xl:hidden divide-y divide-slate-100">
+            {parts.length === 0 ? (
+              <div className="py-10 px-4 text-center text-sm text-slate-400">
+                Nenhuma peça encontrada para este filtro.
+              </div>
+            ) : (
+              parts.map((p) => {
+                const margin =
+                  p.costPrice > 0 ? ((p.salePrice - p.costPrice) / p.costPrice) * 100 : 100;
+                return (
+                  <div key={p.id} className="p-4 space-y-3 hover:bg-slate-50/70 transition text-xs">
+                    {/* Linha 1: Código + Nome + Estoque */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-0.5">
                         <span className="text-[10px] font-mono font-bold text-slate-400 block">
                           {p.code || 'SEM CÓDIGO'}
                         </span>
-                        <span className="font-bold text-slate-900 block">{p.name}</span>
-                        <span className="text-[10px] text-slate-500">
-                          NCM: <strong>{p.ncm || '87089990'}</strong> • CFOP:{' '}
-                          {p.cfopPadraoSaida || '5102'} • CSOSN: {p.csosn || '102'} •{' '}
-                          {p.unidadeMedida || 'UN'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs font-semibold text-slate-600">
-                        {p.supplier?.name || <span className="text-slate-400">Não vinculado</span>}
-                      </td>
-                      <td className="py-3 px-4 text-center">
+                        <h3 className="font-bold text-slate-900 text-sm break-words">{p.name}</h3>
+                        <p className="text-[11px] text-slate-500">
+                          Fornecedor:{' '}
+                          <strong className="text-slate-700">
+                            {p.supplier?.name || 'Não vinculado'}
+                          </strong>
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
                         <span
-                          className={`px-2.5 py-1 rounded-full font-bold text-xs ${
+                          className={`inline-block px-2.5 py-1 rounded-full font-bold text-xs ${
                             p.stock <= p.minStock
                               ? 'bg-red-100 text-red-700'
                               : 'bg-emerald-100 text-emerald-700'
@@ -612,94 +602,260 @@ export default function InventoryPage() {
                         <span className="block text-[10px] text-slate-400 mt-0.5">
                           Mín: {p.minStock}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-right font-medium text-slate-600">
-                        R$ {Number(p.costPrice).toFixed(2)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="font-extrabold text-blue-700 block">
+                      </div>
+                    </div>
+
+                    {/* Linha 2: Dados Fiscais */}
+                    <div className="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 flex flex-wrap gap-x-3 gap-y-1">
+                      <span>
+                        NCM: <strong className="text-slate-700">{p.ncm || '87089990'}</strong>
+                      </span>
+                      <span>CFOP: {p.cfopPadraoSaida || '5102'}</span>
+                      <span>CSOSN: {p.csosn || '102'}</span>
+                      <span>UN: {p.unidadeMedida || 'UN'}</span>
+                    </div>
+
+                    {/* Linha 3: Preços, Margem e Defeitos */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                      <div>
+                        <span className="text-[10px] uppercase text-slate-400 font-bold block">
+                          Custo
+                        </span>
+                        <span className="font-semibold text-slate-700">
+                          R$ {Number(p.costPrice).toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase text-slate-400 font-bold block">
+                          Venda
+                        </span>
+                        <span className="font-extrabold text-blue-700">
                           R$ {Number(p.salePrice).toFixed(2)}
                         </span>
-                        <span className="text-[10px] text-emerald-600 font-semibold">
+                        <span className="text-[10px] text-emerald-600 font-semibold block">
                           +{margin.toFixed(0)}% margem
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1 sm:text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 border-slate-200 pt-1.5 sm:pt-0">
+                        <span className="text-[10px] uppercase text-slate-400 font-bold">
+                          Defeitos
+                        </span>
                         {p.defects > 0 ? (
-                          <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-xs">
+                          <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-[11px]">
                             {p.defects} falha(s)
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-300">0</span>
+                          <span className="text-xs text-slate-400">0</span>
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStockModalItem(p);
-                              setStockQty('1');
-                              setStockNewCost(String(p.costPrice || ''));
-                            }}
-                            title="Dar Entrada de Estoque (Compra)"
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
-                          >
-                            <ArrowUpCircle className="w-4 h-4" />
-                          </button>
+                      </div>
+                    </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDefectModalItem(p);
-                              setDefectQty('1');
-                              setDefectReason('');
-                              setDeductFromStock(true);
-                            }}
-                            title="Registrar Peça com Defeito / Garantia"
-                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded cursor-pointer"
-                          >
-                            <AlertTriangle className="w-4 h-4" />
-                          </button>
+                    {/* Linha 4: Ações Rápidas */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStockModalItem(p);
+                          setStockQty('1');
+                          setStockNewCost(String(p.costPrice || ''));
+                        }}
+                        className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <ArrowUpCircle className="w-3.5 h-3.5 shrink-0" /> Entrada
+                      </button>
 
-                          <button
-                            type="button"
-                            onClick={() => openItemForm('PART', p)}
-                            title="Editar Peça"
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDefectModalItem(p);
+                          setDefectQty('1');
+                          setDefectReason('');
+                          setDeductFromStock(true);
+                        }}
+                        className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Defeito
+                      </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setConfirmDelete({
-                                title: 'Excluir Peça do Catálogo',
-                                description: `Tem certeza que deseja excluir "${p.name}"?`,
-                                onConfirm: async () => {
-                                  await api.delete(`/catalog/items/${p.id}`);
-                                  showToast('Peça excluída.', 'success');
-                                  loadData();
-                                },
-                              })
-                            }
-                            title="Excluir Peça"
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => openItemForm('PART', p)}
+                        className="px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Edit className="w-3.5 h-3.5 shrink-0" /> Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmDelete({
+                            title: 'Excluir Peça do Catálogo',
+                            description: `Tem certeza que deseja excluir "${p.name}"?`,
+                            onConfirm: async () => {
+                              await api.delete(`/catalog/items/${p.id}`);
+                              showToast('Peça excluída.', 'success');
+                              loadData();
+                            },
+                          })
+                        }
+                        title="Excluir Peça"
+                        className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* VISÃO TABELA — Desktop largo (>= xl) */}
+          <div className="hidden xl:block overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-xs uppercase border-b">
+                  <th className="py-3 px-4">Código / Peça / Fiscal</th>
+                  <th className="py-3 px-4">Fornecedor</th>
+                  <th className="py-3 px-4 text-center">Estoque Atual</th>
+                  <th className="py-3 px-4 text-right">Preço Custo</th>
+                  <th className="py-3 px-4 text-right">Preço Venda</th>
+                  <th className="py-3 px-4 text-center">Defeitos</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {parts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400">
+                      Nenhuma peça encontrada para este filtro.
+                    </td>
+                  </tr>
+                ) : (
+                  parts.map((p) => {
+                    const margin =
+                      p.costPrice > 0 ? ((p.salePrice - p.costPrice) / p.costPrice) * 100 : 100;
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                          <span className="text-[10px] font-mono font-bold text-slate-400 block">
+                            {p.code || 'SEM CÓDIGO'}
+                          </span>
+                          <span className="font-bold text-slate-900 block">{p.name}</span>
+                          <span className="text-[10px] text-slate-500">
+                            NCM: <strong>{p.ncm || '87089990'}</strong> • CFOP:{' '}
+                            {p.cfopPadraoSaida || '5102'} • CSOSN: {p.csosn || '102'} •{' '}
+                            {p.unidadeMedida || 'UN'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs font-semibold text-slate-600">
+                          {p.supplier?.name || <span className="text-slate-400">Não vinculado</span>}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-full font-bold text-xs ${
+                              p.stock <= p.minStock
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                            {p.stock} {String(p.unidadeMedida || 'un').toLowerCase()}
+                          </span>
+                          <span className="block text-[10px] text-slate-400 mt-0.5">
+                            Mín: {p.minStock}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-medium text-slate-600 whitespace-nowrap">
+                          R$ {Number(p.costPrice).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <span className="font-extrabold text-blue-700 block">
+                            R$ {Number(p.salePrice).toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-semibold">
+                            +{margin.toFixed(0)}% margem
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {p.defects > 0 ? (
+                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-xs">
+                              {p.defects} falha(s)
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">0</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStockModalItem(p);
+                                setStockQty('1');
+                                setStockNewCost(String(p.costPrice || ''));
+                              }}
+                              title="Dar Entrada de Estoque (Compra)"
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                            >
+                              <ArrowUpCircle className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDefectModalItem(p);
+                                setDefectQty('1');
+                                setDefectReason('');
+                                setDeductFromStock(true);
+                              }}
+                              title="Registrar Peça com Defeito / Garantia"
+                              className="p-1.5 text-amber-600 hover:bg-amber-50 rounded cursor-pointer"
+                            >
+                              <AlertTriangle className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openItemForm('PART', p)}
+                              title="Editar Peça"
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded cursor-pointer"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setConfirmDelete({
+                                  title: 'Excluir Peça do Catálogo',
+                                  description: `Tem certeza que deseja excluir "${p.name}"?`,
+                                  onConfirm: async () => {
+                                    await api.delete(`/catalog/items/${p.id}`);
+                                    showToast('Peça excluída.', 'success');
+                                    loadData();
+                                  },
+                                })
+                              }
+                              title="Excluir Peça"
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      
       {/* ABA 2: TABELA DE SERVIÇOS PADRÃO (MÃO DE OBRA) */}
       {activeTab === 'SERVICES' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -926,40 +1082,90 @@ export default function InventoryPage() {
           </div>
 
           {/* Histórico de Ocorrências de Defeito */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+         {/* Histórico de Ocorrências de Defeito (Cards < lg + Tabela >= lg) */}
+          <div className="w-full min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-slate-50">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
                 Histórico Detalhado de Baixas por Defeito / Garantia ({defectMovements.length})
               </h3>
             </div>
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b text-slate-400 uppercase">
-                  <th className="py-2.5 px-4">Data</th>
-                  <th className="py-2.5 px-4">Peça</th>
-                  <th className="py-2.5 px-4">Fornecedor</th>
-                  <th className="py-2.5 px-4">Qtd</th>
-                  <th className="py-2.5 px-4">Motivo / Falha Apresentada</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {defectMovements.map((m) => (
-                  <tr key={m.id}>
-                    <td className="py-2.5 px-4 text-slate-500">
+
+            {/* VISÃO CARDS — Mobile/Tablet (< lg) */}
+            <div className="lg:hidden divide-y divide-slate-100">
+              {defectMovements.length === 0 ? (
+                <div className="py-8 px-4 text-center text-xs text-slate-400">
+                  Nenhuma ocorrência registrada.
+                </div>
+              ) : (
+                defectMovements.map((m) => (
+                  <div key={m.id} className="p-4 space-y-2 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 break-words">{m.item?.name}</div>
+                        <div className="text-[11px] text-slate-500">
+                          Fornecedor: {m.item?.supplier?.name || '-'}
+                        </div>
+                      </div>
+                      <span className="font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded shrink-0">
+                        -{m.quantity} un
+                      </span>
+                    </div>
+
+                    <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 break-words">
+                      {m.reason}
+                    </p>
+
+                    <div className="text-[11px] text-slate-400">
                       {new Date(m.createdAt).toLocaleString('pt-BR', {
                         timeZone: 'America/Sao_Paulo',
                       })}
-                    </td>
-                    <td className="py-2.5 px-4 font-bold text-slate-900">{m.item?.name}</td>
-                    <td className="py-2.5 px-4 text-slate-600">
-                      {m.item?.supplier?.name || '-'}
-                    </td>
-                    <td className="py-2.5 px-4 font-bold text-red-600">-{m.quantity} un</td>
-                    <td className="py-2.5 px-4 text-slate-700">{m.reason}</td>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* VISÃO TABELA — Desktop (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b text-slate-400 uppercase">
+                    <th className="py-2.5 px-4">Data</th>
+                    <th className="py-2.5 px-4">Peça</th>
+                    <th className="py-2.5 px-4">Fornecedor</th>
+                    <th className="py-2.5 px-4">Qtd</th>
+                    <th className="py-2.5 px-4">Motivo / Falha Apresentada</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {defectMovements.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        Nenhuma ocorrência registrada.
+                      </td>
+                    </tr>
+                  ) : (
+                    defectMovements.map((m) => (
+                      <tr key={m.id}>
+                        <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap">
+                          {new Date(m.createdAt).toLocaleString('pt-BR', {
+                            timeZone: 'America/Sao_Paulo',
+                          })}
+                        </td>
+                        <td className="py-2.5 px-4 font-bold text-slate-900">{m.item?.name}</td>
+                        <td className="py-2.5 px-4 text-slate-600">
+                          {m.item?.supplier?.name || '-'}
+                        </td>
+                        <td className="py-2.5 px-4 font-bold text-red-600 whitespace-nowrap">
+                          -{m.quantity} un
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700">{m.reason}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

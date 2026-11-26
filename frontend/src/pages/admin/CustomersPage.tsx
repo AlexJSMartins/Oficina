@@ -552,13 +552,13 @@ export default function CustomersPage() {
       .reduce((acc: number, o: any) => acc + Number(o.totalAmount || 0), 0);
   }, [selectedDossier]);
 
-  return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+ return (
+    <div className="w-full min-w-0 p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-600" />
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+            <Users className="w-6 h-6 text-blue-600 shrink-0" />
             <span>Clientes & Prontuário de Veículos (CRM)</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
@@ -655,9 +655,9 @@ export default function CustomersPage() {
           </span>
         </button>
 
-        <div className="p-4 rounded-2xl border border-emerald-200 bg-white shadow-xs">
+        <div className="p-4 rounded-2xl border border-emerald-200 bg-white shadow-xs min-w-0">
           <div className="flex items-center justify-between text-emerald-700">
-            <span className="text-[11px] font-bold uppercase tracking-wider">LTV da Carteira</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-lg sm:text-2xl break-words">LTV da Carteira</span>
             <DollarSign className="w-4 h-4" />
           </div>
           <strong className="text-xl sm:text-2xl font-extrabold text-emerald-700 mt-1 block">
@@ -668,22 +668,22 @@ export default function CustomersPage() {
       </div>
 
       {/* Barra de Busca, Filtros Rápidos e Ordenação */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="relative flex-1">
+      <div className="w-full min-w-0 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
-            placeholder="Buscar por nome, WhatsApp, CPF/CNPJ, placa ou modelo do veículo..."
+            placeholder="Buscar por nome, WhatsApp, CPF/CNPJ, placa ou modelo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 transition"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-2">
           <select
             value={filterMode}
             onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-            className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white text-slate-700"
+            className="w-full lg:w-auto max-w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white text-slate-700"
           >
             <option value="ALL">Todos os clientes ({stats.totalCustomers})</option>
             <option value="ALERTS">⚠️ Revisão pendente ({stats.alertsCount})</option>
@@ -693,7 +693,7 @@ export default function CustomersPage() {
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white text-slate-700"
+            className="w-full lg:w-auto max-w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white text-slate-700"
           >
             <option value="NAME">Ordenar: A–Z</option>
             <option value="TOP_SPENDERS">Ordenar: Maiores Clientes (VIP)</option>
@@ -703,163 +703,326 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Tabela de Clientes */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs sm:text-sm">
-          <thead>
-            <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200">
-              <th className="py-3 px-4">Cliente / Contato</th>
-              <th className="py-3 px-4">Veículos (Placas)</th>
-              <th className="py-3 px-4">Última Visita / KM</th>
-              <th className="py-3 px-4">Revisão & Fiscal</th>
-              <th className="py-3 px-4 text-right">Total Gasto</th>
-              <th className="py-3 px-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading && filteredList.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400">
-                  Carregando clientes...
-                </td>
-              </tr>
-            ) : filteredList.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400">
-                  Nenhum cliente ou veículo encontrado para este filtro.
-                </td>
-              </tr>
-            ) : (
-              filteredList.map((c) => {
-                const fiscalOk = hasCompleteFiscalData(c);
-                return (
-                  <tr
-                    key={c.id}
-                    onClick={() => handleOpenDossier(c.id)}
-                    className="hover:bg-slate-50/80 cursor-pointer transition"
-                  >
-                    <td className="py-3.5 px-4 align-top">
-                      <div className="font-bold text-slate-900">{c.name}</div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                        <Phone className="w-3 h-3" /> {c.phone}
+     {/* Lista de Clientes (Cards em telas menores + Tabela em desktop largo) */}
+      <div className="w-full min-w-0 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* VISÃO CARDS — Celular, Tablet e Notebooks compactos (< xl) — ZERO scroll lateral */}
+        <div className="xl:hidden divide-y divide-slate-100">
+          {loading && filteredList.length === 0 ? (
+            <div className="py-12 px-4 text-center text-sm text-slate-400">
+              Carregando clientes...
+            </div>
+          ) : filteredList.length === 0 ? (
+            <div className="py-12 px-4 text-center text-sm text-slate-400">
+              Nenhum cliente ou veículo encontrado para este filtro.
+            </div>
+          ) : (
+            filteredList.map((c) => {
+              const fiscalOk = hasCompleteFiscalData(c);
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => handleOpenDossier(c.id)}
+                  className="p-4 space-y-3 hover:bg-slate-50/80 cursor-pointer transition"
+                >
+                  {/* Linha 1: Nome / Contato + Total Gasto */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="font-bold text-slate-900 text-sm break-words">{c.name}</div>
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Phone className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{c.phone}</span>
                       </div>
                       {c.document && (
-                        <div className="text-[11px] text-slate-400 font-mono">{c.document}</div>
+                        <div className="text-[11px] text-slate-400 font-mono truncate">
+                          {c.document}
+                        </div>
                       )}
-                    </td>
-
-                    <td className="py-3.5 px-4 align-top">
-                      <div className="flex flex-wrap gap-1.5">
-                        {(c.vehicles || []).length === 0 ? (
-                          <span className="text-xs text-slate-400">Sem veículo</span>
-                        ) : (
-                          (c.vehicles || []).map((v: any) => (
-                            <span
-                              key={v.id}
-                              className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-mono font-bold px-2 py-0.5 rounded"
-                            >
-                              {v.plate}
-                              <span className="font-sans font-normal text-slate-300 text-[10px]">
-                                ({v.model})
-                              </span>
-                            </span>
-                          ))
-                        )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-extrabold text-emerald-700 text-sm">
+                        {fmtMoney(c.totalSpent)}
                       </div>
-                    </td>
+                      <div className="text-[10px] text-slate-400">{c.ordersCount || 0} OS</div>
+                    </div>
+                  </div>
 
-                    <td className="py-3.5 px-4 align-top text-xs text-slate-600 whitespace-nowrap">
+                  {/* Linha 2: Veículos (Placas) */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(c.vehicles || []).length === 0 ? (
+                      <span className="text-xs text-slate-400">Sem veículo cadastrado</span>
+                    ) : (
+                      (c.vehicles || []).map((v: any) => (
+                        <span
+                          key={v.id}
+                          className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-mono font-bold px-2 py-0.5 rounded max-w-full"
+                        >
+                          <span className="shrink-0">{v.plate}</span>
+                          <span className="font-sans font-normal text-slate-300 text-[10px] truncate">
+                            ({v.model})
+                          </span>
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Linha 3: Última Visita + Status Revisão & Fiscal */}
+                  <div
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-xs"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Última Visita
+                      </span>
                       {c.lastVisitDate ? (
                         <>
                           <div className="font-semibold text-slate-800">
                             {new Date(c.lastVisitDate).toLocaleDateString('pt-BR')}
                           </div>
-                          <div className="text-[11px] text-slate-400">
-                            {Number(c.lastKm || 0).toLocaleString('pt-BR')} km • {c.ordersCount} OS
+                          <div className="text-[11px] text-slate-500">
+                            {Number(c.lastKm || 0).toLocaleString('pt-BR')} km
                           </div>
                         </>
                       ) : (
                         <span className="text-slate-400">Sem OS registrada</span>
                       )}
-                    </td>
+                    </div>
 
-                    <td className="py-3.5 px-4 align-top" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-col gap-1.5 items-start">
-                        {c.needsMaintenanceAlert ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
-                              <AlertTriangle className="w-3 h-3 text-amber-600" /> Há {c.daysSinceLastVisit}d
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => sendRecallWhatsApp(c, c.vehicles?.[0])}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <MessageCircle className="w-3 h-3" /> Avisar
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Revisão em dia
+                    <div className="flex flex-col gap-1.5 sm:items-end justify-center">
+                      {c.needsMaintenanceAlert ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" /> Há {c.daysSinceLastVisit}d
                           </span>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => sendRecallWhatsApp(c, c.vehicles?.[0])}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3 h-3" /> Avisar
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Revisão em dia
+                        </span>
+                      )}
 
-                        {fiscalOk ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                            <ShieldCheck className="w-3 h-3" /> NF-e OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                            <ShieldAlert className="w-3 h-3 text-slate-400" /> Cadastro fiscal incompleto
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                      {fiscalOk ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                          <ShieldCheck className="w-3 h-3 shrink-0" /> NF-e OK
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
+                          <ShieldAlert className="w-3 h-3 text-slate-400 shrink-0" /> Cadastro fiscal incompleto
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                    <td className="py-3.5 px-4 align-top text-right font-extrabold text-emerald-700 whitespace-nowrap">
-                      {fmtMoney(c.totalSpent)}
-                    </td>
-
-                    <td
-                      className="py-3.5 px-4 align-top text-right whitespace-nowrap"
-                      onClick={(e) => e.stopPropagation()}
+                  {/* Linha 4: Ações Rápidas */}
+                  <div
+                    className="flex flex-wrap items-center gap-1.5 pt-0.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openWhatsApp(
+                          c.phone,
+                          `Olá ${c.name}, tudo bem? Aqui é da ${workshop?.name || 'Oficina'}!`,
+                        )
+                      }
+                      className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openWhatsApp(c.phone, `Olá ${c.name}, tudo bem? Aqui é da ${workshop?.name || 'Oficina'}!`)
-                          }
-                          title="Abrir WhatsApp do cliente"
-                          className="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                        </button>
+                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>WhatsApp</span>
+                    </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setEditCustomer({ ...c })}
-                          title="Editar dados e endereço fiscal"
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 hover:text-blue-600 text-slate-600 cursor-pointer"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditCustomer({ ...c })}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 hover:text-blue-600 text-slate-700 text-xs font-semibold inline-flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Edit className="w-3.5 h-3.5 shrink-0" />
+                      <span>Editar</span>
+                    </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDossier(c.id)}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition cursor-pointer"
-                        >
-                          Prontuário →
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDossier(c.id)}
+                      className="flex-1 sm:flex-none sm:ml-auto px-3.5 py-1.5 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-bold text-center transition cursor-pointer"
+                    >
+                      Prontuário →
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* VISÃO TABELA — Desktop largo (>= xl) */}
+        <div className="hidden xl:block overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200">
+                <th className="py-3 px-4">Cliente / Contato</th>
+                <th className="py-3 px-4">Veículos (Placas)</th>
+                <th className="py-3 px-4">Última Visita / KM</th>
+                <th className="py-3 px-4">Revisão & Fiscal</th>
+                <th className="py-3 px-4 text-right">Total Gasto</th>
+                <th className="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading && filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    Carregando clientes...
+                  </td>
+                </tr>
+              ) : filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    Nenhum cliente ou veículo encontrado para este filtro.
+                  </td>
+                </tr>
+              ) : (
+                filteredList.map((c) => {
+                  const fiscalOk = hasCompleteFiscalData(c);
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => handleOpenDossier(c.id)}
+                      className="hover:bg-slate-50/80 cursor-pointer transition"
+                    >
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="font-bold text-slate-900">{c.name}</div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3" /> {c.phone}
+                        </div>
+                        {c.document && (
+                          <div className="text-[11px] text-slate-400 font-mono">{c.document}</div>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(c.vehicles || []).length === 0 ? (
+                            <span className="text-xs text-slate-400">Sem veículo</span>
+                          ) : (
+                            (c.vehicles || []).map((v: any) => (
+                              <span
+                                key={v.id}
+                                className="inline-flex items-center gap-1.5 bg-slate-900 text-white text-[11px] font-mono font-bold px-2 py-0.5 rounded"
+                              >
+                                {v.plate}
+                                <span className="font-sans font-normal text-slate-300 text-[10px]">
+                                  ({v.model})
+                                </span>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 align-top text-xs text-slate-600 whitespace-nowrap">
+                        {c.lastVisitDate ? (
+                          <>
+                            <div className="font-semibold text-slate-800">
+                              {new Date(c.lastVisitDate).toLocaleDateString('pt-BR')}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {Number(c.lastKm || 0).toLocaleString('pt-BR')} km • {c.ordersCount} OS
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sem OS registrada</span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 align-top" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col gap-1.5 items-start">
+                          {c.needsMaintenanceAlert ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" /> Há {c.daysSinceLastVisit}d
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => sendRecallWhatsApp(c, c.vehicles?.[0])}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <MessageCircle className="w-3 h-3" /> Avisar
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Revisão em dia
+                            </span>
+                          )}
+
+                          {fiscalOk ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                              <ShieldCheck className="w-3 h-3" /> NF-e OK
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                              <ShieldAlert className="w-3 h-3 text-slate-400" /> Cadastro fiscal incompleto
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 align-top text-right font-extrabold text-emerald-700 whitespace-nowrap">
+                        {fmtMoney(c.totalSpent)}
+                      </td>
+
+                      <td
+                        className="py-3.5 px-4 align-top text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openWhatsApp(
+                                c.phone,
+                                `Olá ${c.name}, tudo bem? Aqui é da ${workshop?.name || 'Oficina'}!`,
+                              )
+                            }
+                            title="Abrir WhatsApp do cliente"
+                            className="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditCustomer({ ...c })}
+                            title="Editar dados e endereço fiscal"
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 hover:text-blue-600 text-slate-600 cursor-pointer"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDossier(c.id)}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                          >
+                            Prontuário →
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* =====================================================================
